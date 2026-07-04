@@ -1381,7 +1381,11 @@ body[data-view="progress"] .progress-panel { display: flex; }
   /* Pin the mic/text-input/speaker row to the very bottom of the screen —
      right above the bottom-nav + footer dock — instead of leaving it in
      normal flex flow, so it can't drift with content or scrolling. */
-  .chat-panel { padding-bottom: calc(84px + var(--dock-offset, 0px)); }
+  /* chat-panel already stops at the bottom-nav's own top edge via normal
+     flex layout — it only needs room for the now-fixed input-bar's height,
+     NOT input-bar-h + dock-offset again (that double-counted the dock and
+     left a dead gap exactly dock-offset tall above the input bar). */
+  .chat-panel { padding-bottom: var(--input-bar-h, 84px); }
   .input-bar {
     position: fixed;
     left: 0;

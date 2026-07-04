@@ -14,13 +14,17 @@
 
   // The input bar is pinned with position:fixed (see CSS) so it can't drift
   // away from the bottom of the screen — measure the real height of the
-  // bottom-nav + footer dock beneath it so it sits flush above them exactly,
-  // rather than guessing a fixed pixel value that won't match every device.
+  // bottom-nav + footer dock beneath it, AND the input bar's own real
+  // height, so the chat area reserves exactly that much room. A hardcoded
+  // guess for the input bar's height left a visible empty gap above it
+  // when the real height didn't match the guess.
   function syncDockOffset() {
     const nav = $("bottomNav");
     const footer = document.querySelector(".app-footer");
-    const h = (nav && getComputedStyle(nav).display !== "none" ? nav.offsetHeight : 0) + (footer ? footer.offsetHeight : 0);
-    document.documentElement.style.setProperty("--dock-offset", h + "px");
+    const inputBar = document.querySelector(".input-bar");
+    const dockH = (nav && getComputedStyle(nav).display !== "none" ? nav.offsetHeight : 0) + (footer ? footer.offsetHeight : 0);
+    document.documentElement.style.setProperty("--dock-offset", dockH + "px");
+    if (inputBar) document.documentElement.style.setProperty("--input-bar-h", inputBar.offsetHeight + "px");
   }
   syncDockOffset();
   window.addEventListener("resize", syncDockOffset);
@@ -1279,6 +1283,11 @@
       select.appendChild(opt);
     });
     select.value = settings.voice || "";
+
+    const total = speech.getEnglishVoices().length;
+    $("voiceCountHint").textContent = total <= 1
+      ? `⚠️ נמצא במכשיר שלך רק קול אנגלי אחד (סה"כ: ${total}) — כדי לקבל עוד אפשרויות, הורד קולות נוספים ב-Settings ← Accessibility ← Spoken Content ← Voices ← English.`
+      : `נמצאו ${total} קולות אנגליים במכשיר שלך.`;
   }
   document.addEventListener("sf:voicesChanged", populateVoices);
 
