@@ -1379,6 +1379,18 @@ body[data-view="progress"] .progress-panel { display: flex; }
   .demo-banner span { font-size: 11.5px; }
 
   .toast { bottom: calc(var(--bottomnav-h) + 16px + env(safe-area-inset-bottom)); }
+
+  /* Pin the mic/text-input/speaker row to the very bottom of the screen —
+     right above the bottom-nav + footer dock — instead of leaving it in
+     normal flex flow, so it can't drift with content or scrolling. */
+  .chat-panel { padding-bottom: calc(84px + var(--dock-offset, 0px)); }
+  .input-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--dock-offset, 0px);
+    z-index: 90;
+  }
 }
 
 @media (max-width: 380px) {

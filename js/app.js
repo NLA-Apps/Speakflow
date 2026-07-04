@@ -12,6 +12,20 @@
 
   const $ = (id) => document.getElementById(id);
 
+  // The input bar is pinned with position:fixed (see CSS) so it can't drift
+  // away from the bottom of the screen — measure the real height of the
+  // bottom-nav + footer dock beneath it so it sits flush above them exactly,
+  // rather than guessing a fixed pixel value that won't match every device.
+  function syncDockOffset() {
+    const nav = $("bottomNav");
+    const footer = document.querySelector(".app-footer");
+    const h = (nav && getComputedStyle(nav).display !== "none" ? nav.offsetHeight : 0) + (footer ? footer.offsetHeight : 0);
+    document.documentElement.style.setProperty("--dock-offset", h + "px");
+  }
+  syncDockOffset();
+  window.addEventListener("resize", syncDockOffset);
+  window.addEventListener("orientationchange", () => setTimeout(syncDockOffset, 100));
+
   const chatMessages = $("chatMessages");
   const micBtn = $("micBtn");
   const textInput = $("textInput");
@@ -1251,12 +1265,19 @@
   function populateVoices() {
     const select = $("voiceSelect");
     select.innerHTML = '<option value="">אוטומטי (מומלץ)</option>';
-    for (const { voice, gender } of speech.getCuratedVoices()) {
+    const female = speech.getCuratedVoices().find((c) => c.gender === "female");
+    if (female) {
       const opt = document.createElement("option");
-      opt.value = voice.name;
-      opt.textContent = gender === "female" ? "🎙️ קול נשי" : "🎙️ קול גברי";
+      opt.value = female.voice.name;
+      opt.textContent = "🎙️ קול נשי";
       select.appendChild(opt);
     }
+    speech.getMaleVoiceOptions(6).forEach((voice, i) => {
+      const opt = document.createElement("option");
+      opt.value = voice.name;
+      opt.textContent = `🎙️ קול גברי ${i + 1}`;
+      select.appendChild(opt);
+    });
     select.value = settings.voice || "";
   }
   document.addEventListener("sf:voicesChanged", populateVoices);

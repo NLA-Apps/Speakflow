@@ -186,6 +186,20 @@ window.SF_SPEECH = (function () {
     return result;
   }
 
+  /** Several ranked male candidates (OS default first) so the learner can try each and pick one. */
+  function getMaleVoiceOptions(max) {
+    max = max || 6;
+    const ranked = [...voices]
+      .filter((v) => !BAD_VOICES.test(v.name) && voiceGender(v) === "male")
+      .sort((a, b) => {
+        const scoreDiff = voiceQualityScore(b) - voiceQualityScore(a);
+        return scoreDiff !== 0 ? scoreDiff : malePriorityBonus(b) - malePriorityBonus(a);
+      });
+    const osDefaultIdx = ranked.findIndex((v) => v.default);
+    if (osDefaultIdx > 0) ranked.unshift(ranked.splice(osDefaultIdx, 1)[0]);
+    return ranked.slice(0, max);
+  }
+
   function pickVoice() {
     // A voice saved in settings before the bad-voice blacklist existed could
     // still point at a novelty voice (e.g. Fred) — ignore such a saved
@@ -262,6 +276,7 @@ window.SF_SPEECH = (function () {
     recognizeOnce,
     getEnglishVoices,
     getCuratedVoices,
+    getMaleVoiceOptions,
     setPreferredVoice,
     isHighQualityVoice,
     isListening: () => listening
