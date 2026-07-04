@@ -132,7 +132,11 @@ window.SF_SPEECH = (function () {
   // names so we can offer exactly one female and one male option instead of
   // a long, technical, confusing list of every voice on the device.
   const FEMALE_NAMES = /samantha|zira|aria\b|\bava\b|emma|jenny|salli|joanna|kendra|kimberly|\bivy\b|susan|allison|nicole|\bamy\b|victoria|karen|tessa|moira|fiona|serena|\bsara\b|\bzoe\b|catherine|linda|heather|michelle|olivia|sonia|shelley|hazel|libby|\bmia\b|natasha|elizabeth|\bfemale\b/i;
-  const MALE_NAMES = /\bdavid\b|\bguy\b|\bmark\b|\balex\b|daniel|\bfred\b|\bryan\b|christopher|\beric\b|justin|kevin|matthew|brian|andrew|\btom\b|george|oliver|william|\bjames\b|aaron|gordon|arthur|\beddy\b|\bmale\b/i;
+  const MALE_NAMES = /\bdavid\b|\bguy\b|\bmark\b|\balex\b|daniel|\bryan\b|christopher|\beric\b|justin|kevin|matthew|brian|andrew|\btom\b|george|oliver|william|\bjames\b|aaron|gordon|arthur|\beddy\b|\bmale\b/i;
+
+  // Legacy/novelty system voices (Fred, Albert, Zarvox, etc.) are notoriously
+  // robotic — never offer them even if their name happens to match a gender.
+  const BAD_VOICES = /\bfred\b|\balbert\b|\bjunior\b|\bralph\b|\bbahh\b|\bbells\b|\bboing\b|\bbubbles\b|\bcellos\b|\bderanged\b|\bgood news\b|\bbad news\b|\bhysterical\b|\bpipe organ\b|\btrinoids\b|\bwhisper\b|\bzarvox\b|\borgan\b|\bsuperstar\b|\btrillian\b|\bkathy\b|\bprincess\b|\bagnes\b|\bbruce\b/i;
 
   function voiceGender(v) {
     if (FEMALE_NAMES.test(v.name)) return "female";
@@ -142,7 +146,9 @@ window.SF_SPEECH = (function () {
 
   /** Exactly one best female + one best male voice (fewer if the device has fewer). */
   function getCuratedVoices() {
-    const ranked = [...voices].sort((a, b) => voiceQualityScore(b) - voiceQualityScore(a));
+    const ranked = [...voices]
+      .filter((v) => !BAD_VOICES.test(v.name))
+      .sort((a, b) => voiceQualityScore(b) - voiceQualityScore(a));
     const result = [];
 
     const female = ranked.find((v) => voiceGender(v) === "female");
@@ -166,6 +172,24 @@ window.SF_SPEECH = (function () {
       if (v) return v;
     }
     return getCuratedVoices()[0]?.voice || voices[0] || null;
+  }
+
+  // iOS Safari only allows speechSynthesis.speak() to start audio when it's
+  // called synchronously inside a user-gesture event. A bot reply arrives
+  // later via an async fetch, outside that window, so it gets silently
+  // dropped unless the engine was already "unlocked" earlier in the same
+  // gesture stack. Speaking one silent utterance on the very first tap
+  // unlocks it for the rest of the page's lifetime.
+  let unlocked = false;
+  function unlock() {
+    if (unlocked || !("speechSynthesis" in window)) return;
+    unlocked = true;
+    const u = new SpeechSynthesisUtterance(" ");
+    u.volume = 0;
+    speechSynthesis.speak(u);
+  }
+  if ("speechSynthesis" in window) {
+    document.addEventListener("pointerdown", unlock, { once: true, capture: true });
   }
 
   function speak(text, rate, attempt) {

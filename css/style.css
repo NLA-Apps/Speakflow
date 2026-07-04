@@ -33,11 +33,14 @@
 html { height: 100%; }
 
 body {
-  /* 100svh (smallest possible viewport) is the safe baseline for a fixed
-     app-shell — on iOS, especially installed home-screen PWAs, 100dvh can
-     miscalculate and leave a gap at the bottom below the app's background. */
+  /* --app-height is set from JS via visualViewport (see app.js) — iOS Safari's
+     vh/svh/dvh units are unreliable in home-screen-installed PWAs and can
+     leave a gap at the bottom below the app's background. 100svh is only
+     the fallback for browsers where the JS hasn't run yet. */
   height: 100svh;
+  height: var(--app-height, 100svh);
   min-height: 100svh;
+  min-height: var(--app-height, 100svh);
   font-family: var(--font-he);
   background:
     radial-gradient(1200px 600px at 85% -10%, rgba(47, 128, 237, 0.14), transparent 60%),
