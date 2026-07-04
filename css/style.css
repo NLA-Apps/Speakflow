@@ -1126,7 +1126,11 @@ body[data-view="progress"] .progress-panel { display: flex; }
   display: grid; place-items: center;
   z-index: 100;
   animation: fadeIn 0.2s ease;
-  padding: 16px;
+  /* Plain 16px padding doesn't clear the translucent status bar on a notch/
+     Dynamic Island iPhone in standalone mode — unlike .app-header, this
+     never accounted for env(safe-area-inset-top), so the modal could sit
+     right up against the clock/battery icons. */
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
 }
 .modal-overlay[hidden] { display: none; }
 @keyframes fadeIn { from { opacity: 0; } }
