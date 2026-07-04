@@ -1406,6 +1406,22 @@ body[data-view="progress"] .progress-panel { display: flex; }
     border-top: 1px solid var(--border);
     padding-bottom: env(safe-area-inset-bottom);
   }
+  /* On some real iPhones in standalone mode, a position:fixed; bottom:0
+     element's box doesn't actually reach the true physical bottom edge —
+     a gap of raw system background shows below it regardless of what CSS
+     unit or JS-measured height is used. Rather than guess at the exact
+     cause again, bleed this element's own background further down past
+     its own box so that gap — whatever its real size — gets covered by
+     the same color instead of showing through. */
+  .bottom-dock::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: rgba(19, 26, 36, 0.92);
+  }
   .bottom-dock .input-bar {
     border-top: none;
     background: transparent;
