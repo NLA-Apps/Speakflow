@@ -33,14 +33,12 @@
 html { height: 100%; }
 
 body {
-  /* Every vh/svh/dvh/-webkit-fill-available unit we tried still left a gap
-     on some real iOS devices, in every mode (standalone, Safari, Chrome).
-     position:fixed + inset:0 sidesteps the whole "what counts as 100% of
-     the viewport" question by pinning directly to the four viewport edges
-     instead of computing a height at all — the standard fix for this
-     specific class of iOS bug. */
-  position: fixed;
-  inset: 0;
+  /* Reverted the position:fixed/inset:0 experiment — it made the gap worse
+     on the real device instead of fixing it. Back to the simplest baseline
+     while we get an actual screenshot of the current state to diagnose
+     properly instead of guessing another CSS unit blind. */
+  height: 100svh;
+  min-height: 100svh;
   font-family: var(--font-he);
   background:
     radial-gradient(1200px 600px at 85% -10%, rgba(47, 128, 237, 0.14), transparent 60%),
