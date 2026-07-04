@@ -12,18 +12,6 @@
 
   const $ = (id) => document.getElementById(id);
 
-  // iOS Safari's vh/svh/dvh CSS units are unreliable for the actual visible
-  // height, especially in home-screen-installed PWAs — window.visualViewport
-  // reports the true on-screen height, so we mirror it into a CSS var.
-  function syncAppHeight() {
-    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    document.documentElement.style.setProperty("--app-height", h + "px");
-  }
-  syncAppHeight();
-  window.addEventListener("resize", syncAppHeight);
-  window.addEventListener("orientationchange", () => setTimeout(syncAppHeight, 100));
-  if (window.visualViewport) window.visualViewport.addEventListener("resize", syncAppHeight);
-
   const chatMessages = $("chatMessages");
   const micBtn = $("micBtn");
   const textInput = $("textInput");

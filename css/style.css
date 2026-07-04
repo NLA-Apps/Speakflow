@@ -30,25 +30,17 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html {
-  height: 100%;
-  /* -webkit-fill-available predates dvh/svh and is ignored by browsers that
-     don't support it — kept as an extra fallback layer for older WebKit. */
-  height: -webkit-fill-available;
-}
+html { height: 100%; }
 
 body {
-  /* --app-height is set from JS via visualViewport (see app.js) — iOS Safari's
-     vh/svh/dvh units are unreliable in home-screen-installed PWAs and can
-     leave a gap at the bottom below the app's background. Each line below is
-     a fallback for the previous one failing to parse/apply on a given
-     browser; --app-height (set by JS) always wins when it's available. */
-  height: 100svh;
-  height: -webkit-fill-available;
-  height: var(--app-height, 100svh);
-  min-height: 100svh;
-  min-height: -webkit-fill-available;
-  min-height: var(--app-height, 100svh);
+  /* Every vh/svh/dvh/-webkit-fill-available unit we tried still left a gap
+     on some real iOS devices, in every mode (standalone, Safari, Chrome).
+     position:fixed + inset:0 sidesteps the whole "what counts as 100% of
+     the viewport" question by pinning directly to the four viewport edges
+     instead of computing a height at all — the standard fix for this
+     specific class of iOS bug. */
+  position: fixed;
+  inset: 0;
   font-family: var(--font-he);
   background:
     radial-gradient(1200px 600px at 85% -10%, rgba(47, 128, 237, 0.14), transparent 60%),
