@@ -1284,10 +1284,12 @@
     });
     select.value = settings.voice || "";
 
-    const total = speech.getEnglishVoices().length;
+    const englishVoices = speech.getEnglishVoices();
+    const total = englishVoices.length;
+    const names = englishVoices.map((v) => v.name).join(", ");
     $("voiceCountHint").textContent = total <= 1
       ? `⚠️ נמצא במכשיר שלך רק קול אנגלי אחד (סה"כ: ${total}) — כדי לקבל עוד אפשרויות, הורד קולות נוספים ב-Settings ← Accessibility ← Spoken Content ← Voices ← English.`
-      : `נמצאו ${total} קולות אנגליים במכשיר שלך.`;
+      : `נמצאו ${total} קולות אנגליים: ${names}`;
   }
   document.addEventListener("sf:voicesChanged", populateVoices);
 
