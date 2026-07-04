@@ -128,6 +128,9 @@ window.SF_API = (function () {
             }
           ],
           messages: history,
+          tools: [
+            { type: "web_search_20250305", name: "web_search", max_uses: 3 }
+          ],
           output_config: {
             format: { type: "json_schema", schema: cfg.OUTPUT_SCHEMA }
           }
@@ -155,8 +158,20 @@ window.SF_API = (function () {
       throw apiError("הבקשה נדחתה על ידי מסנני הבטיחות — נסה לנסח אחרת.");
     }
 
-    const textBlock = (data.content || []).find((b) => b.type === "text");
-    if (!textBlock) throw apiError("התקבלה תשובה ריקה — נסה שוב.");
+    // pick the LAST text block, not the first — when web_search runs first,
+    // the final structured reply is the text block that comes after it
+    const textBlocks = (data.content || []).filter((b) => b.type === "text");
+    const textBlock = textBlocks[textBlocks.length - 1];
+    if (!textBlock) {
+      log?.error("Empty response from Claude", {
+        stop_reason: data.stop_reason,
+        block_types: (data.content || []).map((b) => b.type)
+      });
+      if (data.stop_reason === "max_tokens") {
+        throw apiError("תוצאות החיפוש היו ארוכות מדי והתשובה נקטעה — נסה שוב או נסח את השאלה קצר יותר.");
+      }
+      throw apiError("התקבלה תשובה ריקה — נסה שוב.");
+    }
 
     let parsed;
     try {

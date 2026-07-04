@@ -33,7 +33,11 @@
 html { height: 100%; }
 
 body {
-  min-height: 100dvh;
+  /* 100svh (smallest possible viewport) is the safe baseline for a fixed
+     app-shell — on iOS, especially installed home-screen PWAs, 100dvh can
+     miscalculate and leave a gap at the bottom below the app's background. */
+  height: 100svh;
+  min-height: 100svh;
   font-family: var(--font-he);
   background:
     radial-gradient(1200px 600px at 85% -10%, rgba(47, 128, 237, 0.14), transparent 60%),
@@ -43,7 +47,6 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  height: 100dvh;
 }
 
 [dir="ltr"], .en { font-family: var(--font-en); }
@@ -968,6 +971,18 @@ body[data-view="progress"] .progress-panel { display: block; }
 .fill-result.ok { color: var(--green); }
 .fill-result.bad { color: var(--red); }
 
+.fill-sentence-row { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.fill-sentence-row .card-label { margin-bottom: 0; }
+
+.fill-speak[hidden] { display: none; }
+.fill-speak {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
+.fill-speak .mic-btn.small { width: 52px; height: 52px; }
+.fill-speak .pron-score[hidden], .fill-speak .pron-diff[hidden] { display: none; }
+
 .secondary-btn {
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -1113,7 +1128,7 @@ body[data-view="progress"] .progress-panel { display: flex; }
 
 .modal {
   width: min(460px, 100%);
-  max-height: calc(100dvh - 40px);
+  max-height: calc(100svh - 40px);
   display: flex; flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);

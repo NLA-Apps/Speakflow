@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=3">
 </head>
 <body data-view="chat">
 
@@ -368,7 +368,7 @@
         <label class="field">
           <span class="field-label">קול הבוט</span>
           <select id="voiceSelect" dir="ltr"></select>
-          <span class="field-hint">קולות מסומנים ב-⭐ נשמעים הכי טבעיים. ב-Windows/Edge חפש קול עם "Online (Natural)" בשם; באנדרואיד קולות ה-Google הרשתיים הכי טובים. <button type="button" class="link-btn" id="testVoiceBtn">🔊 בדיקת קול</button></span>
+          <span class="field-hint">בחרנו את הקול הכי טבעי מכל מגדר שהמכשיר שלך מציע. <button type="button" class="link-btn" id="testVoiceBtn">🔊 בדיקת קול</button></span>
         </label>
 
         <label class="field">
@@ -475,10 +475,29 @@
       <div class="session" id="fillSession" hidden>
         <span class="session-progress" id="fillProgress"></span>
         <div class="fill-card">
-          <div class="card-label">השלם את המשפט:</div>
+          <div class="fill-sentence-row">
+            <div class="card-label">השלם את המשפט:</div>
+            <button class="icon-btn" id="fillListenBtn" title="השמע את המשפט">🔊</button>
+          </div>
           <div class="fill-sentence" id="fillSentence" dir="ltr"></div>
           <div class="fill-bank" id="fillBank" dir="ltr"></div>
           <div class="fill-result" id="fillResult" hidden></div>
+
+          <div class="fill-speak" id="fillSpeakSection" hidden>
+            <div class="card-label">עכשיו תגיד את המשפט המלא בקול:</div>
+            <button class="mic-btn small" id="fillMicBtn" aria-label="הקלטה">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+              </svg>
+            </button>
+            <div class="pron-score" id="fillPronScore" hidden></div>
+            <div class="pron-diff" id="fillPronDiff" dir="ltr" hidden></div>
+            <div class="pron-tip" id="fillPronTip" hidden></div>
+          </div>
+
+          <button class="primary-btn" id="fillContinueBtn" hidden>המשך למשפט הבא ←</button>
         </div>
         <div class="session-done" id="fillDone" hidden>
           <div class="done-icon">📝</div>
@@ -503,15 +522,15 @@
 
   <div class="toast" id="toast" hidden></div>
 
-  <script src="js/config.js"></script>
-  <script src="js/logger.js"></script>
-  <script src="js/storage.js"></script>
-  <script src="js/translate.js"></script>
-  <script src="js/srs.js"></script>
-  <script src="js/progress.js"></script>
-  <script src="js/insights.js"></script>
-  <script src="js/speech.js"></script>
-  <script src="js/api.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/config.js?v=3"></script>
+  <script src="js/logger.js?v=3"></script>
+  <script src="js/storage.js?v=3"></script>
+  <script src="js/translate.js?v=3"></script>
+  <script src="js/srs.js?v=3"></script>
+  <script src="js/progress.js?v=3"></script>
+  <script src="js/insights.js?v=3"></script>
+  <script src="js/speech.js?v=3"></script>
+  <script src="js/api.js?v=3"></script>
+  <script src="js/app.js?v=3"></script>
 </body>
 </html>

@@ -128,13 +128,44 @@ window.SF_SPEECH = (function () {
     return /natural|neural|premium|enhanced|wavenet/i.test(v.name) || v.localService === false;
   }
 
+  // Web Speech API exposes no gender field — infer it from common voice given
+  // names so we can offer exactly one female and one male option instead of
+  // a long, technical, confusing list of every voice on the device.
+  const FEMALE_NAMES = /samantha|zira|aria\b|\bava\b|emma|jenny|salli|joanna|kendra|kimberly|\bivy\b|susan|allison|nicole|\bamy\b|victoria|karen|tessa|moira|fiona|serena|\bsara\b|\bzoe\b|catherine|linda|heather|michelle|olivia|sonia|shelley|hazel|libby|\bmia\b|natasha|elizabeth|\bfemale\b/i;
+  const MALE_NAMES = /\bdavid\b|\bguy\b|\bmark\b|\balex\b|daniel|\bfred\b|\bryan\b|christopher|\beric\b|justin|kevin|matthew|brian|andrew|\btom\b|george|oliver|william|\bjames\b|aaron|gordon|arthur|\beddy\b|\bmale\b/i;
+
+  function voiceGender(v) {
+    if (FEMALE_NAMES.test(v.name)) return "female";
+    if (MALE_NAMES.test(v.name)) return "male";
+    return null;
+  }
+
+  /** Exactly one best female + one best male voice (fewer if the device has fewer). */
+  function getCuratedVoices() {
+    const ranked = [...voices].sort((a, b) => voiceQualityScore(b) - voiceQualityScore(a));
+    const result = [];
+
+    const female = ranked.find((v) => voiceGender(v) === "female");
+    if (female) result.push({ voice: female, gender: "female" });
+
+    const male = ranked.find((v) => voiceGender(v) === "male");
+    if (male) result.push({ voice: male, gender: "male" });
+
+    // fill up to 2 with the next-best voices if gender couldn't be detected
+    for (const v of ranked) {
+      if (result.length >= 2) break;
+      if (result.some((r) => r.voice === v)) continue;
+      result.push({ voice: v, gender: voiceGender(v) || (result.length === 0 ? "female" : "male") });
+    }
+    return result;
+  }
+
   function pickVoice() {
     if (preferredVoiceName) {
       const v = voices.find((v) => v.name === preferredVoiceName);
       if (v) return v;
     }
-    if (!voices.length) return null;
-    return [...voices].sort((a, b) => voiceQualityScore(b) - voiceQualityScore(a))[0];
+    return getCuratedVoices()[0]?.voice || voices[0] || null;
   }
 
   function speak(text, rate, attempt) {
@@ -183,6 +214,7 @@ window.SF_SPEECH = (function () {
     stopSpeaking,
     recognizeOnce,
     getEnglishVoices,
+    getCuratedVoices,
     setPreferredVoice,
     isHighQualityVoice,
     isListening: () => listening

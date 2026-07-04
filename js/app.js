@@ -759,7 +759,9 @@
     return (s.toLowerCase().match(/[a-z']+/g) || []);
   }
 
-  function showPronResult(target, spoken) {
+  /* Shared word-match scoring used by both pronunciation practice and the
+     fill-in-blank game's speak-it-out-loud step. Returns {score, diffHtml}. */
+  function scoreSpeech(target, spoken) {
     const targetWords = pronTokenize(target);
     const spokenSet = new Set(pronTokenize(spoken));
 
@@ -776,28 +778,46 @@
 
     const denom = targetWords.length || 1;
     const score = Math.round((hits / denom) * 100);
+    return { score, diffHtml };
+  }
 
-    const scoreEl = $("pronScore");
-    scoreEl.textContent = score + "%";
-    scoreEl.className = "pron-score " + (score >= 85 ? "great" : score >= 60 ? "ok" : "low");
+  /* Renders a score + word-diff + optional Claude tip into a given set of
+     elements. Shared by pronunciation practice and the fill-in-blank game. */
+  function renderSpeechFeedback(target, spoken, els) {
+    const { score, diffHtml } = scoreSpeech(target, spoken);
 
-    $("pronDiff").innerHTML = diffHtml;
-    $("pronHint").hidden = true;
-    $("pronResult").hidden = false;
+    els.scoreEl.textContent = score + "%";
+    els.scoreEl.className = els.scoreEl.className.split(" ")[0] + " " + (score >= 85 ? "great" : score >= 60 ? "ok" : "low");
+    els.scoreEl.hidden = false;
+
+    els.diffEl.innerHTML = diffHtml;
+    els.diffEl.hidden = false;
 
     if (score >= 85) showToast("מעולה! 🌟 הגייה ברורה");
 
-    const tipEl = $("pronTip");
-    if (api.isDemoMode()) {
-      tipEl.hidden = true;
-    } else {
-      tipEl.hidden = false;
-      tipEl.textContent = "💬 מקבל טיפ מסקיי...";
-      api.getPronunciationTip(target, spoken, score).then((tip) => {
-        if (tip) tipEl.textContent = "💬 " + tip;
-        else tipEl.hidden = true;
-      });
+    if (els.tipEl) {
+      if (api.isDemoMode()) {
+        els.tipEl.hidden = true;
+      } else {
+        els.tipEl.hidden = false;
+        els.tipEl.textContent = "💬 מקבל טיפ מסקיי...";
+        api.getPronunciationTip(target, spoken, score).then((tip) => {
+          if (tip) els.tipEl.textContent = "💬 " + tip;
+          else els.tipEl.hidden = true;
+        });
+      }
     }
+    return score;
+  }
+
+  function showPronResult(target, spoken) {
+    $("pronHint").hidden = true;
+    $("pronResult").hidden = false;
+    renderSpeechFeedback(target, spoken, {
+      scoreEl: $("pronScore"),
+      diffEl: $("pronDiff"),
+      tipEl: $("pronTip")
+    });
   }
 
   // ================= Vocabulary hub (full-screen overlay) =================
@@ -987,7 +1007,13 @@
     const sentence = fillState.pool[fillState.index];
     $("fillProgress").textContent = (fillState.index + 1) + " / " + fillState.pool.length;
     $("fillResult").hidden = true;
+    $("fillSpeakSection").hidden = true;
+    $("fillContinueBtn").hidden = true;
+    $("fillPronScore").hidden = true;
+    $("fillPronDiff").hidden = true;
+    $("fillPronTip").hidden = true;
 
+    fillState.fullSentence = sentence;
     const tokens = tokenizeForFill(sentence);
     const eligible = tokens.map((t, i) => ({ ...t, i })).filter((t) => t.clean.length >= 3);
     const blankCount = Math.min(3, Math.max(1, Math.floor(eligible.length * 0.35)));
@@ -1078,6 +1104,7 @@
       const i = orderedIdxs[order];
       const correct = filled[i].word === tokens[i].clean;
       slot.classList.add(correct ? "box-right" : "box-wrong");
+      if (!correct) slot.textContent = tokens[i].clean; // reveal the right word immediately
     });
 
     const resultEl = $("fillResult");
@@ -1087,18 +1114,44 @@
 
     if (allCorrect) fillState.correctCount++;
 
-    setTimeout(() => {
-      if (!allCorrect) {
-        [...container.querySelectorAll(".fill-blank")].forEach((slot, order) => {
-          slot.textContent = tokens[orderedIdxs[order]].clean;
-        });
-        setTimeout(() => { fillState.index++; showFillSentence(); }, 1400);
-      } else {
-        fillState.index++;
-        showFillSentence();
-      }
-    }, allCorrect ? 900 : 300);
+    // let the learner speak the completed sentence and get a pronunciation
+    // score before moving on, instead of auto-advancing on a timer
+    $("fillSpeakSection").hidden = false;
+    $("fillContinueBtn").hidden = false;
   }
+
+  let fillMicListening = false;
+
+  $("fillListenBtn").addEventListener("click", () => {
+    if (fillState?.fullSentence) speech.speak(fillState.fullSentence, settings.rate);
+  });
+
+  $("fillMicBtn").addEventListener("click", () => {
+    if (fillMicListening || !fillState) return;
+    speech.recognizeOnce({
+      onState(on) {
+        fillMicListening = on;
+        $("fillMicBtn").classList.toggle("listening", on);
+      },
+      onResult(text) {
+        renderSpeechFeedback(fillState.fullSentence, text, {
+          scoreEl: $("fillPronScore"),
+          diffEl: $("fillPronDiff"),
+          tipEl: $("fillPronTip")
+        });
+      },
+      onError(code) {
+        if (code === "no-speech") showToast("לא שמעתי — נסה שוב.", true);
+        else if (code === "not-allowed") showToast("אין הרשאה למיקרופון.", true);
+      },
+      onEnd() {}
+    });
+  });
+
+  $("fillContinueBtn").addEventListener("click", () => {
+    fillState.index++;
+    showFillSentence();
+  });
 
   function finishFill() {
     $("fillDone").hidden = false;
@@ -1197,13 +1250,11 @@
 
   function populateVoices() {
     const select = $("voiceSelect");
-    const voices = speech.getEnglishVoices();
     select.innerHTML = '<option value="">אוטומטי (מומלץ)</option>';
-    for (const v of voices) {
+    for (const { voice, gender } of speech.getCuratedVoices()) {
       const opt = document.createElement("option");
-      opt.value = v.name;
-      const star = speech.isHighQualityVoice(v) ? "⭐ " : "";
-      opt.textContent = star + v.name.replace(/Microsoft |Google /, "") + " (" + v.lang + ")";
+      opt.value = voice.name;
+      opt.textContent = gender === "female" ? "🎙️ קול נשי" : "🎙️ קול גברי";
       select.appendChild(opt);
     }
     select.value = settings.voice || "";
