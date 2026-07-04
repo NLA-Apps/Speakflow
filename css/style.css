@@ -33,6 +33,16 @@
 html {
   height: 100%;
   height: 100dvh;
+  /* In iOS standalone (home-screen) mode the physical screen is painted a
+     little taller than window.innerHeight (into the home-indicator safe
+     area). The <body> only fills innerHeight, so the strip below it shows
+     the ROOT element's background — which, left unset, defaults to WHITE
+     and appears as a light rectangle covering the bottom of the app.
+     Painting <html> the app's dark base color makes that strip invisible
+     regardless of the exact size iOS decides to paint. This is why every
+     height-unit fix failed: the app content WAS filling innerHeight (the
+     diagnostic showed GAP=0) — the white was the canvas *behind* it. */
+  background: var(--bg);
 }
 
 body {
@@ -1139,7 +1149,10 @@ body[data-view="progress"] .progress-panel { display: flex; }
 
 .modal {
   width: min(460px, 100%);
-  max-height: calc(100dvh - 40px);
+  /* Subtract the overlay's own safe-area padding (top + bottom) too, or the
+     modal can grow taller than the padded area and overflow past the screen
+     bottom — clipping the Save button on a device with a home-indicator. */
+  max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   display: flex; flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);
