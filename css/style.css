@@ -1050,7 +1050,6 @@ body[data-view="progress"] .progress-panel { display: flex; }
   border-top: 1px solid var(--border);
   background: rgba(19, 26, 36, 0.92);
   backdrop-filter: blur(14px);
-  padding-bottom: env(safe-area-inset-bottom);
   flex-shrink: 0;
 }
 .bottom-nav button {
@@ -1324,6 +1323,17 @@ body[data-view="progress"] .progress-panel { display: flex; }
 }
 .toast.error { border-color: rgba(248, 113, 113, 0.5); color: var(--red); }
 .toast[hidden] { display: none; }
+
+/* ================= App footer (always visible above the bottom nav) ===== */
+.app-footer {
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-faint);
+  background: var(--bg);
+  padding: 3px 0 calc(3px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+}
 
 /* ================= Scrollbars ================= */
 ::-webkit-scrollbar { width: 9px; }
