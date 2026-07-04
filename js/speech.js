@@ -160,16 +160,20 @@ window.SF_SPEECH = (function () {
     return null;
   }
 
-  // Among iOS's default ("compact") male voices — the only ones on a device
+  // Among a device's default ("compact") voices — the only ones on a device
   // that hasn't downloaded an Enhanced/Premium voice pack — quality varies a
   // lot and ties in voiceQualityScore fall back to unpredictable OS
-  // enumeration order. Break ties toward the ones users find least robotic.
-  const MALE_QUALITY_PRIORITY = ["daniel", "aaron", "tom", "alex", "arthur", "gordon"];
-  function malePriorityBonus(v) {
+  // enumeration order. Break ties toward younger/fresher-sounding voices
+  // over older-sounding, more formal ones (Daniel/Karen read as older).
+  const MALE_QUALITY_PRIORITY = ["aaron", "tom", "guy", "alex", "daniel", "arthur", "gordon"];
+  const FEMALE_QUALITY_PRIORITY = ["ava", "zoe", "aria", "nicky", "amy", "ivy", "samantha", "emma", "jenny", "karen", "moira", "victoria", "tessa", "fiona"];
+  function priorityBonus(v, list) {
     const id = voiceIdString(v).toLowerCase();
-    const i = MALE_QUALITY_PRIORITY.findIndex((n) => id.includes(n));
-    return i === -1 ? 0 : (MALE_QUALITY_PRIORITY.length - i);
+    const i = list.findIndex((n) => id.includes(n));
+    return i === -1 ? 0 : (list.length - i);
   }
+  function malePriorityBonus(v) { return priorityBonus(v, MALE_QUALITY_PRIORITY); }
+  function femalePriorityBonus(v) { return priorityBonus(v, FEMALE_QUALITY_PRIORITY); }
 
   /** Exactly one best female + one best male voice (fewer if the device has fewer). */
   function getCuratedVoices() {
@@ -178,15 +182,19 @@ window.SF_SPEECH = (function () {
       .sort((a, b) => voiceQualityScore(b) - voiceQualityScore(a));
     const result = [];
 
-    const female = ranked.find((v) => voiceGender(v) === "female");
+    // Not preferring the OS's own configured default voice anymore — it
+    // previously caused an older/more formal-sounding voice (e.g. Daniel) to
+    // win over a younger-sounding one purely because the device happened to
+    // have it set as default. Our own priority ranking now fully decides.
+    const femaleCandidates = ranked.filter((v) => voiceGender(v) === "female");
+    const female = [...femaleCandidates].sort((a, b) => {
+      const scoreDiff = voiceQualityScore(b) - voiceQualityScore(a);
+      return scoreDiff !== 0 ? scoreDiff : femalePriorityBonus(b) - femalePriorityBonus(a);
+    })[0];
     if (female) result.push({ voice: female, gender: "female" });
 
     const maleCandidates = ranked.filter((v) => voiceGender(v) === "male");
-    // The OS's own configured default voice (SpeechSynthesisVoice.default)
-    // is what the device's owner actually picked in their system settings —
-    // prefer it over our own quality guess whenever it happens to be male.
-    const osDefaultMale = maleCandidates.find((v) => v.default);
-    const male = osDefaultMale || [...maleCandidates].sort((a, b) => {
+    const male = [...maleCandidates].sort((a, b) => {
       const scoreDiff = voiceQualityScore(b) - voiceQualityScore(a);
       return scoreDiff !== 0 ? scoreDiff : malePriorityBonus(b) - malePriorityBonus(a);
     })[0];
@@ -201,7 +209,7 @@ window.SF_SPEECH = (function () {
     return result;
   }
 
-  /** Several ranked male candidates (OS default first) so the learner can try each and pick one. */
+  /** Several ranked male candidates (younger/fresher-sounding first) so the learner can try each and pick one. */
   function getMaleVoiceOptions(max) {
     max = max || 6;
     const ranked = [...voices]
@@ -210,8 +218,6 @@ window.SF_SPEECH = (function () {
         const scoreDiff = voiceQualityScore(b) - voiceQualityScore(a);
         return scoreDiff !== 0 ? scoreDiff : malePriorityBonus(b) - malePriorityBonus(a);
       });
-    const osDefaultIdx = ranked.findIndex((v) => v.default);
-    if (osDefaultIdx > 0) ranked.unshift(ranked.splice(osDefaultIdx, 1)[0]);
     return ranked.slice(0, max);
   }
 

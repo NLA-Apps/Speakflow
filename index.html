@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=20">
+  <link rel="stylesheet" href="css/style.css?v=23">
 </head>
 <body data-view="chat">
 
@@ -406,6 +406,12 @@
           </div>
         </div>
 
+        <div class="field">
+          <span class="field-label">מדידת מסך (לאבחון תקלות תצוגה)</span>
+          <span class="field-hint" id="screenDiagHint" dir="ltr" style="white-space: pre-line; font-family: monospace; font-size: 11px;"></span>
+        </div>
+        <div id="safeAreaProbe" style="position: absolute; visibility: hidden; padding-bottom: env(safe-area-inset-bottom); pointer-events: none;"></div>
+
         <div class="danger-zone">
           <button class="danger-btn" id="resetBtn">איפוס כל הנתונים (אוצר מילים, היסטוריה, כרטיסיות)</button>
         </div>
@@ -523,17 +529,17 @@
 
   <div class="toast" id="toast" hidden></div>
 
-  <div class="app-footer">© NLA-Apps · v20</div>
+  <div class="app-footer">© NLA-Apps · v23</div>
 
-  <script src="js/config.js?v=20"></script>
-  <script src="js/logger.js?v=20"></script>
-  <script src="js/storage.js?v=20"></script>
-  <script src="js/translate.js?v=20"></script>
-  <script src="js/srs.js?v=20"></script>
-  <script src="js/progress.js?v=20"></script>
-  <script src="js/insights.js?v=20"></script>
-  <script src="js/speech.js?v=20"></script>
-  <script src="js/api.js?v=20"></script>
-  <script src="js/app.js?v=20"></script>
+  <script src="js/config.js?v=23"></script>
+  <script src="js/logger.js?v=23"></script>
+  <script src="js/storage.js?v=23"></script>
+  <script src="js/translate.js?v=23"></script>
+  <script src="js/srs.js?v=23"></script>
+  <script src="js/progress.js?v=23"></script>
+  <script src="js/insights.js?v=23"></script>
+  <script src="js/speech.js?v=23"></script>
+  <script src="js/api.js?v=23"></script>
+  <script src="js/app.js?v=23"></script>
 </body>
 </html>

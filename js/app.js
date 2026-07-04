@@ -1276,10 +1276,11 @@
       opt.textContent = "🎙️ קול נשי";
       select.appendChild(opt);
     }
-    speech.getMaleVoiceOptions(6).forEach((voice, i) => {
+    const maleOptions = speech.getMaleVoiceOptions(6);
+    maleOptions.forEach((voice, i) => {
       const opt = document.createElement("option");
       opt.value = voice.name;
-      opt.textContent = `🎙️ קול גברי ${i + 1}`;
+      opt.textContent = maleOptions.length > 1 ? `🎙️ קול גברי ${i + 1}` : "🎙️ קול גברי";
       select.appendChild(opt);
     });
     select.value = settings.voice || "";
@@ -1293,6 +1294,34 @@
   }
   document.addEventListener("sf:voicesChanged", populateVoices);
 
+  // Live pixel measurements for diagnosing device-specific display bugs
+  // (e.g. the persistent bottom gap on some iPhones) — a screenshot of this
+  // gives exact numbers instead of a verbal description of "there's a gap".
+  function renderScreenDiagnostics() {
+    const el = $("screenDiagHint");
+    if (!el) return;
+    const nav = $("bottomNav");
+    const footer = document.querySelector(".app-footer");
+    const footerRect = footer ? footer.getBoundingClientRect() : null;
+    const probe = $("safeAreaProbe");
+    const safeBottom = probe ? getComputedStyle(probe).paddingBottom : "n/a";
+    const lines = [
+      `window.innerHeight: ${window.innerHeight}`,
+      `visualViewport.height: ${window.visualViewport ? Math.round(window.visualViewport.height) : "n/a"}`,
+      `document.documentElement.clientHeight: ${document.documentElement.clientHeight}`,
+      `body computed height: ${getComputedStyle(document.body).height}`,
+      `body getBoundingClientRect: top=${Math.round(document.body.getBoundingClientRect().top)} bottom=${Math.round(document.body.getBoundingClientRect().bottom)}`,
+      `safe-area-inset-bottom: ${safeBottom}`,
+      `bottom-nav display: ${nav ? getComputedStyle(nav).display : "n/a"}`,
+      `footer bottom: ${footerRect ? Math.round(footerRect.bottom) : "n/a"}`,
+      `GAP (innerHeight - footer.bottom): ${footerRect ? Math.round(window.innerHeight - footerRect.bottom) : "n/a"}`,
+      `devicePixelRatio: ${window.devicePixelRatio}`,
+      `standalone: ${window.navigator.standalone}`,
+      `userAgent: ${navigator.userAgent}`
+    ];
+    el.textContent = lines.join("\n");
+  }
+
   function openSettings() {
     $("apiKeyInput").value = store.getApiKey();
     $("ttsToggle").checked = settings.tts;
@@ -1302,6 +1331,7 @@
     $("goalInput").value = settings.goal || cfg.DEFAULT_GOAL;
     populateVoices();
     renderLogFolderStatus();
+    renderScreenDiagnostics();
     modal.hidden = false;
   }
   function closeSettings() { modal.hidden = true; }
