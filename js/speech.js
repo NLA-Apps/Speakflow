@@ -143,7 +143,7 @@ window.SF_SPEECH = (function () {
   // names so we can offer exactly one female and one male option instead of
   // a long, technical, confusing list of every voice on the device.
   const FEMALE_NAMES = /samantha|zira|aria\b|\bava\b|emma|jenny|salli|joanna|kendra|kimberly|\bivy\b|susan|allison|nicole|\bamy\b|victoria|karen|tessa|moira|fiona|serena|\bsara\b|\bzoe\b|catherine|linda|heather|michelle|olivia|sonia|shelley|hazel|libby|\bmia\b|natasha|elizabeth|\bfemale\b/i;
-  const MALE_NAMES = /\bdavid\b|\bguy\b|\bmark\b|\balex\b|daniel|\bryan\b|christopher|\beric\b|justin|kevin|matthew|brian|andrew|\btom\b|george|oliver|william|\bjames\b|aaron|gordon|arthur|\beddy\b|\bmale\b/i;
+  const MALE_NAMES = /\bdavid\b|\bguy\b|\bmark\b|\balex\b|daniel|\bryan\b|christopher|\beric\b|justin|kevin|matthew|brian|andrew|\btom\b|george|oliver|william|\bjames\b|aaron|gordon|arthur|\beddy\b|\brishi\b|\bmale\b/i;
 
   // Legacy/novelty system voices (Fred, Albert, Zarvox, etc.) are notoriously
   // robotic — never offer them even if their name happens to match a gender.
@@ -165,7 +165,7 @@ window.SF_SPEECH = (function () {
   // lot and ties in voiceQualityScore fall back to unpredictable OS
   // enumeration order. Break ties toward younger/fresher-sounding voices
   // over older-sounding, more formal ones (Daniel/Karen read as older).
-  const MALE_QUALITY_PRIORITY = ["aaron", "tom", "guy", "alex", "daniel", "arthur", "gordon"];
+  const MALE_QUALITY_PRIORITY = ["rishi", "aaron", "tom", "guy", "alex", "daniel", "arthur", "gordon"];
   const FEMALE_QUALITY_PRIORITY = ["ava", "zoe", "aria", "nicky", "amy", "ivy", "samantha", "emma", "jenny", "karen", "moira", "victoria", "tessa", "fiona"];
   function priorityBonus(v, list) {
     const id = voiceIdString(v).toLowerCase();

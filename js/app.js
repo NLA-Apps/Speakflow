@@ -1288,9 +1288,13 @@
     const englishVoices = speech.getEnglishVoices();
     const total = englishVoices.length;
     const names = englishVoices.map((v) => v.name).join(", ");
-    $("voiceCountHint").textContent = total <= 1
+    const curated = speech.getCuratedVoices();
+    const pickedFemale = curated.find((c) => c.gender === "female")?.voice.name;
+    const pickedMale = curated.find((c) => c.gender === "male")?.voice.name;
+    const pickedLine = `נבחר אוטומטית: נשי=${pickedFemale || "—"}, גברי=${pickedMale || "—"}`;
+    $("voiceCountHint").textContent = (total <= 1
       ? `⚠️ נמצא במכשיר שלך רק קול אנגלי אחד (סה"כ: ${total}) — כדי לקבל עוד אפשרויות, הורד קולות נוספים ב-Settings ← Accessibility ← Spoken Content ← Voices ← English.`
-      : `נמצאו ${total} קולות אנגליים: ${names}`;
+      : `נמצאו ${total} קולות אנגליים: ${names}`) + `\n${pickedLine}`;
   }
   document.addEventListener("sf:voicesChanged", populateVoices);
 
