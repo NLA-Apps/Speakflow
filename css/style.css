@@ -1137,7 +1137,7 @@ body[data-view="progress"] .progress-panel { display: flex; }
 
 .modal {
   width: min(460px, 100%);
-  max-height: calc(100svh - 40px);
+  max-height: calc(100dvh - 40px);
   display: flex; flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1402,6 +1402,12 @@ body[data-view="progress"] .progress-panel { display: flex; }
     right: 0;
     bottom: var(--dock-offset, 0px);
     z-index: 90;
+    /* Sitting flush above bottom-nav (which has its own border-top and a
+       darker background) made these read as two separate floating bars —
+       match the nav's background and drop this bar's own top border so the
+       seam between them disappears and they read as one unified dock. */
+    background: rgba(19, 26, 36, 0.92);
+    border-top: none;
   }
 }
 
