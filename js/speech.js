@@ -167,7 +167,10 @@ window.SF_SPEECH = (function () {
   }
 
   function pickVoice() {
-    if (preferredVoiceName) {
+    // A voice saved in settings before the bad-voice blacklist existed could
+    // still point at a novelty voice (e.g. Fred) — ignore such a saved
+    // preference instead of honoring it forever.
+    if (preferredVoiceName && !BAD_VOICES.test(preferredVoiceName)) {
       const v = voices.find((v) => v.name === preferredVoiceName);
       if (v) return v;
     }
