@@ -49,6 +49,7 @@ window.SF_SPEECH = (function () {
   function start() {
     if (!recognition || listening) return;
     stopSpeaking(); // don't transcribe the bot's own voice
+    primeAudio(); // cancel() above can re-lock iOS's speech engine — re-prime it now, in this same tap
     try { recognition.start(); } catch { /* already started */ }
   }
 
@@ -74,6 +75,7 @@ window.SF_SPEECH = (function () {
   function recognizeOnce(cb) {
     if (!supported) { cb.onError?.("not-supported"); return null; }
     stopSpeaking();
+    primeAudio(); // cancel() above can re-lock iOS's speech engine — re-prime it now, in this same tap
     const rec = new SpeechRecognition();
     rec.lang = "en-US";
     rec.continuous = false;
@@ -144,6 +146,16 @@ window.SF_SPEECH = (function () {
     return null;
   }
 
+  // Among iOS's default ("compact") male voices — the only ones on a device
+  // that hasn't downloaded an Enhanced/Premium voice pack — quality varies a
+  // lot and ties in voiceQualityScore fall back to unpredictable OS
+  // enumeration order. Break ties toward the ones users find least robotic.
+  const MALE_QUALITY_PRIORITY = ["daniel", "aaron", "tom", "alex", "arthur", "gordon"];
+  function malePriorityBonus(v) {
+    const i = MALE_QUALITY_PRIORITY.findIndex((n) => v.name.toLowerCase().includes(n));
+    return i === -1 ? 0 : (MALE_QUALITY_PRIORITY.length - i);
+  }
+
   /** Exactly one best female + one best male voice (fewer if the device has fewer). */
   function getCuratedVoices() {
     const ranked = [...voices]
@@ -154,7 +166,11 @@ window.SF_SPEECH = (function () {
     const female = ranked.find((v) => voiceGender(v) === "female");
     if (female) result.push({ voice: female, gender: "female" });
 
-    const male = ranked.find((v) => voiceGender(v) === "male");
+    const maleCandidates = ranked.filter((v) => voiceGender(v) === "male");
+    const male = [...maleCandidates].sort((a, b) => {
+      const scoreDiff = voiceQualityScore(b) - voiceQualityScore(a);
+      return scoreDiff !== 0 ? scoreDiff : malePriorityBonus(b) - malePriorityBonus(a);
+    })[0];
     if (male) result.push({ voice: male, gender: "male" });
 
     // fill up to 2 with the next-best voices if gender couldn't be detected
@@ -180,19 +196,19 @@ window.SF_SPEECH = (function () {
   // iOS Safari only allows speechSynthesis.speak() to start audio when it's
   // called synchronously inside a user-gesture event. A bot reply arrives
   // later via an async fetch, outside that window, so it gets silently
-  // dropped unless the engine was already "unlocked" earlier in the same
-  // gesture stack. Speaking one silent utterance on the very first tap
-  // unlocks it for the rest of the page's lifetime.
-  let unlocked = false;
-  function unlock() {
-    if (unlocked || !("speechSynthesis" in window)) return;
-    unlocked = true;
+  // dropped unless the engine was "primed" earlier in the same gesture
+  // stack. Speaking one silent utterance does that — but a later
+  // speechSynthesis.cancel() (e.g. when the mic starts) can re-lock the
+  // engine on iOS, so this isn't a one-time thing: call it again from
+  // every gesture that might cancel(), right after the cancel.
+  function primeAudio() {
+    if (!("speechSynthesis" in window)) return;
     const u = new SpeechSynthesisUtterance(" ");
     u.volume = 0;
     speechSynthesis.speak(u);
   }
   if ("speechSynthesis" in window) {
-    document.addEventListener("pointerdown", unlock, { once: true, capture: true });
+    document.addEventListener("pointerdown", primeAudio, { capture: true });
   }
 
   function speak(text, rate, attempt) {
