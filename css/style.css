@@ -33,12 +33,14 @@
 html { height: 100%; }
 
 body {
-  /* Reverted the position:fixed/inset:0 experiment — it made the gap worse
-     on the real device instead of fixing it. Back to the simplest baseline
-     while we get an actual screenshot of the current state to diagnose
-     properly instead of guessing another CSS unit blind. */
-  height: 100svh;
-  min-height: 100svh;
+  /* 100% alone stops short of the real screen height in standalone iOS with
+     viewport-fit=cover (it excludes the safe areas) — 100dvh is the actual
+     visible viewport including them, so the app fills all the way down
+     instead of leaving a blank gap below it. Confirmed against our sibling
+     LyricsApp project, which uses this exact unit and renders full-screen
+     correctly on the same real iPhone where 100svh left a gap. */
+  height: 100%;
+  height: 100dvh;
   font-family: var(--font-he);
   background:
     radial-gradient(1200px 600px at 85% -10%, rgba(47, 128, 237, 0.14), transparent 60%),
