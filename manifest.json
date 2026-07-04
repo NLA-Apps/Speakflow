@@ -1,0 +1,19 @@
+{
+  "name": "SpeakFlow — מאמן האנגלית האישי שלך",
+  "short_name": "SpeakFlow",
+  "description": "תרגול אנגלית בשיחה קולית עם בוט AI, תובנות בזמן אמת וכרטיסיות לימוד",
+  "start_url": ".",
+  "display": "standalone",
+  "dir": "rtl",
+  "lang": "he",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

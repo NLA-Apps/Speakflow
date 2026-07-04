@@ -1,0 +1,7 @@
+# Claude Code local tooling (personal, not part of the deployed app)
+.claude/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
