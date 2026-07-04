@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=28">
+  <link rel="stylesheet" href="css/style.css?v=29">
 </head>
 <body data-view="chat">
 
@@ -107,7 +107,7 @@
         </div>
       </div>
 
-      <div class="input-bar">
+      <div class="input-bar" id="inputBar">
         <button class="mic-btn" id="micBtn" title="לחץ ודבר באנגלית" aria-label="הקלטה">
           <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
@@ -332,13 +332,19 @@
     </section>
   </main>
 
-  <!-- ===== Bottom nav (mobile) ===== -->
-  <nav class="bottom-nav" id="bottomNav">
-    <button data-view="chat" class="active"><span class="nav-icon">💬</span>שיחה</button>
-    <button data-view="insights"><span class="nav-icon">✨</span>תובנות</button>
-    <button data-view="practice"><span class="nav-icon">🎯</span>תרגול<span class="due-badge" id="dueBadgeMobile" hidden></span></button>
-    <button data-view="progress"><span class="nav-icon">📈</span>התקדמות</button>
-  </nav>
+  <!-- ===== Bottom dock (mobile): input-bar gets moved in here by JS when on
+       the chat view + mobile width, so it and the nav are one real element
+       (one background, one border) instead of two separately positioned
+       ones that merely look alike. ===== -->
+  <div class="bottom-dock" id="bottomDock">
+    <nav class="bottom-nav" id="bottomNav">
+      <button data-view="chat" class="active"><span class="nav-icon">💬</span>שיחה</button>
+      <button data-view="insights"><span class="nav-icon">✨</span>תובנות</button>
+      <button data-view="practice"><span class="nav-icon">🎯</span>תרגול<span class="due-badge" id="dueBadgeMobile" hidden></span></button>
+      <button data-view="progress"><span class="nav-icon">📈</span>התקדמות</button>
+    </nav>
+    <div class="app-footer">© NLA-Apps · v29</div>
+  </div>
 
   <!-- ===== Word tooltip (small bubble anchored right above the tapped word) ===== -->
   <div class="word-tooltip" id="wordTooltip" hidden>
@@ -529,17 +535,15 @@
 
   <div class="toast" id="toast" hidden></div>
 
-  <div class="app-footer">© NLA-Apps · v28</div>
-
-  <script src="js/config.js?v=28"></script>
-  <script src="js/logger.js?v=28"></script>
-  <script src="js/storage.js?v=28"></script>
-  <script src="js/translate.js?v=28"></script>
-  <script src="js/srs.js?v=28"></script>
-  <script src="js/progress.js?v=28"></script>
-  <script src="js/insights.js?v=28"></script>
-  <script src="js/speech.js?v=28"></script>
-  <script src="js/api.js?v=28"></script>
-  <script src="js/app.js?v=28"></script>
+  <script src="js/config.js?v=29"></script>
+  <script src="js/logger.js?v=29"></script>
+  <script src="js/storage.js?v=29"></script>
+  <script src="js/translate.js?v=29"></script>
+  <script src="js/srs.js?v=29"></script>
+  <script src="js/progress.js?v=29"></script>
+  <script src="js/insights.js?v=29"></script>
+  <script src="js/speech.js?v=29"></script>
+  <script src="js/api.js?v=29"></script>
+  <script src="js/app.js?v=29"></script>
 </body>
 </html>

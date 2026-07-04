@@ -1048,6 +1048,8 @@ body[data-view="progress"] .progress-panel { display: flex; }
 .chart-goal-line { stroke: var(--amber); stroke-width: 1; stroke-dasharray: 4 3; opacity: 0.7; }
 
 /* ================= Bottom nav (mobile) ================= */
+.bottom-dock { display: flex; flex-direction: column; }
+
 .bottom-nav {
   display: none;
   border-top: 1px solid var(--border);
@@ -1332,15 +1334,13 @@ body[data-view="progress"] .progress-panel { display: flex; }
 .toast.error { border-color: rgba(248, 113, 113, 0.5); color: var(--red); }
 .toast[hidden] { display: none; }
 
-/* ================= App footer (always visible above the bottom nav) ===== */
+/* ================= App footer (last row inside .bottom-dock) ===== */
 .app-footer {
   flex-shrink: 0;
   text-align: center;
   font-size: 10px;
   color: var(--text-faint);
-  background: var(--bg);
-  padding: 3px 0 calc(3px + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--border);
+  padding: 3px 0;
 }
 
 /* ================= Scrollbars ================= */
@@ -1388,27 +1388,30 @@ body[data-view="progress"] .progress-panel { display: flex; }
 
   .toast { bottom: calc(var(--bottomnav-h) + 16px + env(safe-area-inset-bottom)); }
 
-  /* Pin the mic/text-input/speaker row to the very bottom of the screen —
-     right above the bottom-nav + footer dock — instead of leaving it in
-     normal flex flow, so it can't drift with content or scrolling. */
-  /* chat-panel already stops at the bottom-nav's own top edge via normal
-     flex layout — it only needs room for the now-fixed input-bar's height,
-     NOT input-bar-h + dock-offset again (that double-counted the dock and
-     left a dead gap exactly dock-offset tall above the input bar). */
-  .chat-panel { padding-bottom: var(--input-bar-h, 84px); }
-  .input-bar {
+  /* On mobile the input-bar gets moved (by JS) inside #bottomDock, right
+     above the nav — so the mic/text-input/speaker row, the nav, and the
+     footer are ONE real fixed element with one shared background/border,
+     instead of separate pieces that only look alike. Fixes both the
+     "these look like two floating bars" issue and removes any chance of
+     the pieces drifting apart or leaving a gap between them. */
+  .chat-panel { padding-bottom: var(--dock-total-h, 140px); }
+  .bottom-dock {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: var(--dock-offset, 0px);
+    bottom: 0;
     z-index: 90;
-    /* Sitting flush above bottom-nav (which has its own border-top and a
-       darker background) made these read as two separate floating bars —
-       match the nav's background and drop this bar's own top border so the
-       seam between them disappears and they read as one unified dock. */
     background: rgba(19, 26, 36, 0.92);
-    border-top: none;
+    backdrop-filter: blur(14px);
+    border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom);
   }
+  .bottom-dock .input-bar {
+    border-top: none;
+    background: transparent;
+    padding-bottom: 12px;
+  }
+  .bottom-dock .bottom-nav { border-top: 1px solid var(--border); }
 }
 
 @media (max-width: 380px) {

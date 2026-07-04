@@ -12,23 +12,44 @@
 
   const $ = (id) => document.getElementById(id);
 
-  // The input bar is pinned with position:fixed (see CSS) so it can't drift
-  // away from the bottom of the screen — measure the real height of the
-  // bottom-nav + footer dock beneath it, AND the input bar's own real
-  // height, so the chat area reserves exactly that much room. A hardcoded
-  // guess for the input bar's height left a visible empty gap above it
-  // when the real height didn't match the guess.
+  // On mobile, physically move the input-bar (mic/text-input/speaker row)
+  // inside #bottomDock, right above the bottom-nav, so it and the nav+footer
+  // are ONE real DOM element with one shared background/border — not two
+  // separately positioned pieces that only look alike (which could drift
+  // apart or leave a seam/gap on some devices). On desktop it moves back to
+  // its original spot inside the chat column, in normal flow.
+  const inputBarEl = $("inputBar");
+  const bottomDockEl = $("bottomDock");
+  const chatPanelEl = document.getElementById("view-chat");
+  const MOBILE_BREAKPOINT = 900;
+
+  function layoutBottomDock() {
+    const isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
+    if (!inputBarEl || !bottomDockEl || !chatPanelEl) return;
+    if (isMobile && inputBarEl.parentElement !== bottomDockEl) {
+      bottomDockEl.insertBefore(inputBarEl, bottomDockEl.firstChild);
+    } else if (!isMobile && inputBarEl.parentElement !== chatPanelEl) {
+      chatPanelEl.appendChild(inputBarEl);
+    }
+  }
+
+  // Measure the dock's real total height (input-bar + nav + footer) so the
+  // chat area reserves exactly that much room — a hardcoded guess left a
+  // visible gap when the real height didn't match it.
   function syncDockOffset() {
-    const nav = $("bottomNav");
-    const footer = document.querySelector(".app-footer");
-    const inputBar = document.querySelector(".input-bar");
-    const dockH = (nav && getComputedStyle(nav).display !== "none" ? nav.offsetHeight : 0) + (footer ? footer.offsetHeight : 0);
-    document.documentElement.style.setProperty("--dock-offset", dockH + "px");
-    if (inputBar) document.documentElement.style.setProperty("--input-bar-h", inputBar.offsetHeight + "px");
+    layoutBottomDock();
+    if (bottomDockEl && window.innerWidth <= MOBILE_BREAKPOINT) {
+      document.documentElement.style.setProperty("--dock-total-h", bottomDockEl.offsetHeight + "px");
+    }
   }
   syncDockOffset();
   window.addEventListener("resize", syncDockOffset);
   window.addEventListener("orientationchange", () => setTimeout(syncDockOffset, 100));
+  // iOS standalone launches can report a transient/incorrect viewport size
+  // for the first moment after cold-launch from the home-screen icon —
+  // re-check shortly after load and when the page becomes visible again.
+  window.addEventListener("pageshow", () => setTimeout(syncDockOffset, 300));
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(syncDockOffset, 100); });
 
   const chatMessages = $("chatMessages");
   const micBtn = $("micBtn");
@@ -1305,8 +1326,8 @@
     const el = $("screenDiagHint");
     if (!el) return;
     const nav = $("bottomNav");
-    const footer = document.querySelector(".app-footer");
-    const footerRect = footer ? footer.getBoundingClientRect() : null;
+    const dock = $("bottomDock");
+    const dockRect = dock ? dock.getBoundingClientRect() : null;
     const probe = $("safeAreaProbe");
     const safeBottom = probe ? getComputedStyle(probe).paddingBottom : "n/a";
     const lines = [
@@ -1317,8 +1338,9 @@
       `body getBoundingClientRect: top=${Math.round(document.body.getBoundingClientRect().top)} bottom=${Math.round(document.body.getBoundingClientRect().bottom)}`,
       `safe-area-inset-bottom: ${safeBottom}`,
       `bottom-nav display: ${nav ? getComputedStyle(nav).display : "n/a"}`,
-      `footer bottom: ${footerRect ? Math.round(footerRect.bottom) : "n/a"}`,
-      `GAP (innerHeight - footer.bottom): ${footerRect ? Math.round(window.innerHeight - footerRect.bottom) : "n/a"}`,
+      `input-bar parent: ${inputBarEl && inputBarEl.parentElement ? inputBarEl.parentElement.id || inputBarEl.parentElement.className : "n/a"}`,
+      `bottom-dock rect: top=${dockRect ? Math.round(dockRect.top) : "n/a"} bottom=${dockRect ? Math.round(dockRect.bottom) : "n/a"}`,
+      `GAP (innerHeight - dock.bottom): ${dockRect ? Math.round(window.innerHeight - dockRect.bottom) : "n/a"}`,
       `devicePixelRatio: ${window.devicePixelRatio}`,
       `standalone: ${window.navigator.standalone}`,
       `userAgent: ${navigator.userAgent}`
