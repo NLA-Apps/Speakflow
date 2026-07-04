@@ -30,16 +30,24 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html { height: 100%; }
+html {
+  height: 100%;
+  /* -webkit-fill-available predates dvh/svh and is ignored by browsers that
+     don't support it — kept as an extra fallback layer for older WebKit. */
+  height: -webkit-fill-available;
+}
 
 body {
   /* --app-height is set from JS via visualViewport (see app.js) — iOS Safari's
      vh/svh/dvh units are unreliable in home-screen-installed PWAs and can
-     leave a gap at the bottom below the app's background. 100svh is only
-     the fallback for browsers where the JS hasn't run yet. */
+     leave a gap at the bottom below the app's background. Each line below is
+     a fallback for the previous one failing to parse/apply on a given
+     browser; --app-height (set by JS) always wins when it's available. */
   height: 100svh;
+  height: -webkit-fill-available;
   height: var(--app-height, 100svh);
   min-height: 100svh;
+  min-height: -webkit-fill-available;
   min-height: var(--app-height, 100svh);
   font-family: var(--font-he);
   background:

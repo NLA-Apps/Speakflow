@@ -167,7 +167,11 @@ window.SF_SPEECH = (function () {
     if (female) result.push({ voice: female, gender: "female" });
 
     const maleCandidates = ranked.filter((v) => voiceGender(v) === "male");
-    const male = [...maleCandidates].sort((a, b) => {
+    // The OS's own configured default voice (SpeechSynthesisVoice.default)
+    // is what the device's owner actually picked in their system settings —
+    // prefer it over our own quality guess whenever it happens to be male.
+    const osDefaultMale = maleCandidates.find((v) => v.default);
+    const male = osDefaultMale || [...maleCandidates].sort((a, b) => {
       const scoreDiff = voiceQualityScore(b) - voiceQualityScore(a);
       return scoreDiff !== 0 ? scoreDiff : malePriorityBonus(b) - malePriorityBonus(a);
     })[0];
