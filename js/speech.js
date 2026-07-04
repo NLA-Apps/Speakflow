@@ -117,9 +117,18 @@ window.SF_SPEECH = (function () {
    * human-sounding options browsers expose; non-local (server-rendered) voices
    * also tend to beat the built-in offline ones.
    */
+  // A device set to a non-English system language (e.g. Hebrew) localizes
+  // SpeechSynthesisVoice.name for display ("Daniel" -> "דניאל"), which breaks
+  // any English-name regex entirely. voiceURI is the internal identifier and
+  // typically keeps the original English name even when .name is localized
+  // (e.g. "com.apple.voice.compact.en-GB.Daniel") — match against both.
+  function voiceIdString(v) {
+    return `${v.name || ""} ${v.voiceURI || ""}`;
+  }
+
   function voiceQualityScore(v) {
     let score = 0;
-    if (/natural|neural|premium|enhanced|wavenet/i.test(v.name)) score += 100;
+    if (/natural|neural|premium|enhanced|wavenet/i.test(voiceIdString(v))) score += 100;
     if (v.localService === false) score += 40;
     if (v.lang === "en-US") score += 20;
     else if (v.lang.startsWith("en")) score += 10;
@@ -127,7 +136,7 @@ window.SF_SPEECH = (function () {
   }
 
   function isHighQualityVoice(v) {
-    return /natural|neural|premium|enhanced|wavenet/i.test(v.name) || v.localService === false;
+    return /natural|neural|premium|enhanced|wavenet/i.test(voiceIdString(v)) || v.localService === false;
   }
 
   // Web Speech API exposes no gender field — infer it from common voice given
@@ -140,9 +149,14 @@ window.SF_SPEECH = (function () {
   // robotic — never offer them even if their name happens to match a gender.
   const BAD_VOICES = /\bfred\b|\balbert\b|\bjunior\b|\bralph\b|\bbahh\b|\bbells\b|\bboing\b|\bbubbles\b|\bcellos\b|\bderanged\b|\bgood news\b|\bbad news\b|\bhysterical\b|\bpipe organ\b|\btrinoids\b|\bwhisper\b|\bzarvox\b|\borgan\b|\bsuperstar\b|\btrillian\b|\bkathy\b|\bprincess\b|\bagnes\b|\bbruce\b/i;
 
+  function isBadVoice(v) {
+    return BAD_VOICES.test(voiceIdString(v));
+  }
+
   function voiceGender(v) {
-    if (FEMALE_NAMES.test(v.name)) return "female";
-    if (MALE_NAMES.test(v.name)) return "male";
+    const id = voiceIdString(v);
+    if (FEMALE_NAMES.test(id)) return "female";
+    if (MALE_NAMES.test(id)) return "male";
     return null;
   }
 
@@ -152,14 +166,15 @@ window.SF_SPEECH = (function () {
   // enumeration order. Break ties toward the ones users find least robotic.
   const MALE_QUALITY_PRIORITY = ["daniel", "aaron", "tom", "alex", "arthur", "gordon"];
   function malePriorityBonus(v) {
-    const i = MALE_QUALITY_PRIORITY.findIndex((n) => v.name.toLowerCase().includes(n));
+    const id = voiceIdString(v).toLowerCase();
+    const i = MALE_QUALITY_PRIORITY.findIndex((n) => id.includes(n));
     return i === -1 ? 0 : (MALE_QUALITY_PRIORITY.length - i);
   }
 
   /** Exactly one best female + one best male voice (fewer if the device has fewer). */
   function getCuratedVoices() {
     const ranked = [...voices]
-      .filter((v) => !BAD_VOICES.test(v.name))
+      .filter((v) => !isBadVoice(v))
       .sort((a, b) => voiceQualityScore(b) - voiceQualityScore(a));
     const result = [];
 
@@ -190,7 +205,7 @@ window.SF_SPEECH = (function () {
   function getMaleVoiceOptions(max) {
     max = max || 6;
     const ranked = [...voices]
-      .filter((v) => !BAD_VOICES.test(v.name) && voiceGender(v) === "male")
+      .filter((v) => !isBadVoice(v) && voiceGender(v) === "male")
       .sort((a, b) => {
         const scoreDiff = voiceQualityScore(b) - voiceQualityScore(a);
         return scoreDiff !== 0 ? scoreDiff : malePriorityBonus(b) - malePriorityBonus(a);
@@ -204,9 +219,9 @@ window.SF_SPEECH = (function () {
     // A voice saved in settings before the bad-voice blacklist existed could
     // still point at a novelty voice (e.g. Fred) — ignore such a saved
     // preference instead of honoring it forever.
-    if (preferredVoiceName && !BAD_VOICES.test(preferredVoiceName)) {
+    if (preferredVoiceName) {
       const v = voices.find((v) => v.name === preferredVoiceName);
-      if (v) return v;
+      if (v && !isBadVoice(v)) return v;
     }
     return getCuratedVoices()[0]?.voice || voices[0] || null;
   }

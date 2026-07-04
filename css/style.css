@@ -30,7 +30,10 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html { height: 100%; }
+html {
+  height: 100%;
+  height: 100dvh;
+}
 
 body {
   /* 100% alone stops short of the real screen height in standalone iOS with
