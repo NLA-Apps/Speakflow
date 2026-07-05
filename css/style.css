@@ -1424,6 +1424,16 @@ body[data-view="progress"] .progress-panel { display: flex; }
     padding-bottom: 12px;
   }
   .bottom-dock .bottom-nav { border-top: 1px solid var(--border); }
+
+  /* TEMP DEBUG: make the whole dock nearly transparent so we can see what
+     renders behind/below it. Remove after diagnosing. */
+  .bottom-dock {
+    opacity: 0.12 !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    border-top: none !important;
+  }
+  .bottom-dock .bottom-nav { background: transparent !important; border-top: none !important; }
 }
 
 @media (max-width: 380px) {
