@@ -65,6 +65,14 @@ body {
   overflow: hidden;
 }
 
+/* iOS home-screen PWA (standalone) under-reports 100dvh vs the true physical
+   screen, leaving a strip below the app. 100vh is the LARGE viewport unit,
+   which in standalone (no browser toolbar) equals the full physical height —
+   so the whole app, including the bottom dock, fills to the real edge. Scoped
+   to .ios-standalone (set from JS via navigator.standalone) so regular browser
+   tabs, where 100vh would hide content behind the toolbar, keep 100dvh. */
+html.ios-standalone body { height: 100vh; }
+
 [dir="ltr"], .en { font-family: var(--font-en); }
 button { font-family: inherit; -webkit-tap-highlight-color: transparent; }
 

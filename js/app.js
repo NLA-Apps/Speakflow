@@ -12,6 +12,13 @@
 
   const $ = (id) => document.getElementById(id);
 
+  // Flag iOS home-screen (standalone) launches so CSS can switch to 100vh —
+  // the only viewport unit that reaches the true physical bottom there.
+  if (window.navigator.standalone === true ||
+      (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches)) {
+    document.documentElement.classList.add("ios-standalone");
+  }
+
   // On mobile, physically move the input-bar (mic/text-input/speaker row)
   // inside #bottomDock, right above the bottom-nav, so it and the nav+footer
   // are ONE real DOM element with one shared background/border — not two
