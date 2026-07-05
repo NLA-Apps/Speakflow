@@ -1401,22 +1401,34 @@ body[data-view="progress"] .progress-panel { display: flex; }
 
   .toast { bottom: calc(var(--bottomnav-h) + 16px + env(safe-area-inset-bottom)); }
 
-  /* On mobile the input-bar gets moved (by JS) inside #bottomDock, right
-     above the nav — so the mic/text-input/speaker row, the nav, and the
-     footer are ONE real element with one shared background/border.
-     Crucially it is NOT position:fixed: it stays in the body's normal flex
-     flow as the LAST child of the flex column (body is height:100dvh; flex
-     column), so it's always flush at the very bottom of the viewport. A
-     fixed; bottom:0 element on iOS standalone anchors to a viewport that
-     doesn't reach the physical bottom, leaving dark background below the
-     dock — flex flow has no such anchoring quirk. */
+  /* The input-bar is moved (by JS) inside #bottomDock, above the nav, so
+     mic/text-input/speaker + nav + footer are ONE element. It's pinned with
+     position:fixed; bottom:0 (with viewport-fit=cover this reaches the true
+     physical bottom edge), and its OWN background is bled downward via
+     ::after so that even if iOS paints a sliver of physical screen below a
+     fixed;bottom:0 box in standalone mode, that sliver is covered by the
+     dock's own solid color instead of showing the page's bluish gradient.
+     chat-panel reserves --dock-total-h (JS-measured) so content isn't
+     hidden behind the fixed dock. */
+  .chat-panel { padding-bottom: var(--dock-total-h, 150px); }
   .bottom-dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: 90;
-    background: rgba(19, 26, 36, 0.92);
-    backdrop-filter: blur(14px);
+    background: var(--bg-soft);
     border-top: 1px solid var(--border);
     padding-bottom: env(safe-area-inset-bottom);
-    flex-shrink: 0;
+  }
+  .bottom-dock::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: 160px;
+    background: var(--bg-soft);
   }
   .bottom-dock .input-bar {
     border-top: none;
