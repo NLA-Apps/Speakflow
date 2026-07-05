@@ -58,49 +58,6 @@
   window.addEventListener("pageshow", () => setTimeout(syncDockOffset, 300));
   document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(syncDockOffset, 100); });
 
-  // ---- Draggable dock: let the user place the bottom dock exactly where they
-  // want vertically. Positive offset = dock moved up; negative = pushed down
-  // past the screen edge (useful to swallow the iOS standalone bottom sliver).
-  // Persisted to localStorage; double-tap the grip resets to 0.
-  const DOCK_OFFSET_KEY = "sf_dock_offset";
-  let dockOffset = parseInt(localStorage.getItem(DOCK_OFFSET_KEY) || "0", 10) || 0;
-  function applyDockOffset() {
-    document.documentElement.style.setProperty("--dock-bottom-offset", dockOffset + "px");
-  }
-  applyDockOffset();
-
-  const dockHandle = $("dockHandle");
-  if (dockHandle) {
-    let dragging = false, startY = 0, startOffset = 0;
-    dockHandle.addEventListener("pointerdown", (e) => {
-      dragging = true;
-      startY = e.clientY;
-      startOffset = dockOffset;
-      try { dockHandle.setPointerCapture(e.pointerId); } catch { /* noop */ }
-      e.preventDefault();
-    });
-    dockHandle.addEventListener("pointermove", (e) => {
-      if (!dragging) return;
-      // dragging up (clientY decreases) raises the dock (offset increases)
-      dockOffset = Math.round(startOffset - (e.clientY - startY));
-      applyDockOffset();
-    });
-    const endDrag = () => {
-      if (!dragging) return;
-      dragging = false;
-      localStorage.setItem(DOCK_OFFSET_KEY, String(dockOffset));
-      log?.info("Dock offset set", { dockOffset });
-    };
-    dockHandle.addEventListener("pointerup", endDrag);
-    dockHandle.addEventListener("pointercancel", endDrag);
-    dockHandle.addEventListener("dblclick", () => {
-      dockOffset = 0;
-      applyDockOffset();
-      localStorage.setItem(DOCK_OFFSET_KEY, "0");
-      showToast("מיקום הסרגל אופס");
-    });
-  }
-
   const chatMessages = $("chatMessages");
   const micBtn = $("micBtn");
   const textInput = $("textInput");
@@ -1340,32 +1297,26 @@
   function populateVoices() {
     const select = $("voiceSelect");
     select.innerHTML = '<option value="">אוטומטי (מומלץ)</option>';
-    const female = speech.getCuratedVoices().find((c) => c.gender === "female");
-    if (female) {
-      const opt = document.createElement("option");
-      opt.value = female.voice.name;
-      opt.textContent = "🎙️ קול נשי";
-      select.appendChild(opt);
-    }
-    const maleOptions = speech.getMaleVoiceOptions(6);
-    maleOptions.forEach((voice, i) => {
-      const opt = document.createElement("option");
-      opt.value = voice.name;
-      opt.textContent = maleOptions.length > 1 ? `🎙️ קול גברי ${i + 1}` : "🎙️ קול גברי";
-      select.appendChild(opt);
-    });
+
+    const females = speech.getVoiceOptions("female", 5);
+    const males = speech.getVoiceOptions("male", 5);
+    const addOptions = (list, heLabel) => {
+      list.forEach((voice, i) => {
+        const opt = document.createElement("option");
+        opt.value = voice.name;
+        // gender label + running number + the voice's own name to tell them apart
+        opt.textContent = `🎙️ ${heLabel} ${i + 1} — ${voice.name}`;
+        select.appendChild(opt);
+      });
+    };
+    addOptions(females, "קול נשי");
+    addOptions(males, "קול גברי");
     select.value = settings.voice || "";
 
-    const englishVoices = speech.getEnglishVoices();
-    const total = englishVoices.length;
-    const names = englishVoices.map((v) => v.name).join(", ");
-    const curated = speech.getCuratedVoices();
-    const pickedFemale = curated.find((c) => c.gender === "female")?.voice.name;
-    const pickedMale = curated.find((c) => c.gender === "male")?.voice.name;
-    const pickedLine = `נבחר אוטומטית: נשי=${pickedFemale || "—"}, גברי=${pickedMale || "—"}`;
-    $("voiceCountHint").textContent = (total <= 1
-      ? `⚠️ נמצא במכשיר שלך רק קול אנגלי אחד (סה"כ: ${total}) — כדי לקבל עוד אפשרויות, הורד קולות נוספים ב-Settings ← Accessibility ← Spoken Content ← Voices ← English.`
-      : `נמצאו ${total} קולות אנגליים: ${names}`) + `\n${pickedLine}`;
+    const total = females.length + males.length;
+    $("voiceCountHint").textContent = total >= 2
+      ? `${females.length} קולות נשיים ו-${males.length} קולות גבריים זמינים. בחר קול ולחץ 🔊 בדיקת קול כדי לשמוע אותו.`
+      : `⚠️ המכשיר שלך חושף מעט מאוד קולות אנגליים לדפדפן. כדי להוסיף קולות איכותיים: Settings ← Accessibility ← Spoken Content ← Voices ← English (הורד קולות Enhanced/Premium).`;
   }
   document.addEventListener("sf:voicesChanged", populateVoices);
 

@@ -1067,7 +1067,6 @@ body[data-view="progress"] .progress-panel { display: flex; }
 
 /* ================= Bottom nav (mobile) ================= */
 .bottom-dock { display: flex; flex-direction: column; }
-.dock-handle { display: none; }
 
 .bottom-nav {
   display: none;
@@ -1419,45 +1418,16 @@ body[data-view="progress"] .progress-panel { display: flex; }
      dock's own solid color instead of showing the page's bluish gradient.
      chat-panel reserves --dock-total-h (JS-measured) so content isn't
      hidden behind the fixed dock. */
-  .chat-panel { padding-bottom: calc(var(--dock-total-h, 150px) + var(--dock-bottom-offset, 0px)); }
+  .chat-panel { padding-bottom: var(--dock-total-h, 150px); }
   .bottom-dock {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: var(--dock-bottom-offset, 0px);
+    bottom: 0;
     z-index: 90;
     background: var(--bg-soft);
     border-top: 1px solid var(--border);
     padding-bottom: env(safe-area-inset-bottom);
-  }
-  /* Draggable grip so the user can nudge the whole dock up/down and place it
-     exactly where they want (offset persisted in localStorage; double-tap
-     resets to 0). */
-  .dock-handle {
-    position: absolute;
-    top: -20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 64px;
-    height: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg-soft);
-    border: 1px solid var(--border);
-    border-bottom: none;
-    border-radius: 12px 12px 0 0;
-    cursor: grab;
-    touch-action: none;
-    z-index: 91;
-  }
-  .dock-handle:active { cursor: grabbing; }
-  .dock-handle::before {
-    content: "";
-    width: 34px;
-    height: 4px;
-    border-radius: 2px;
-    background: var(--text-faint);
   }
   .bottom-dock::after {
     content: "";

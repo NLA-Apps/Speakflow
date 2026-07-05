@@ -209,17 +209,35 @@ window.SF_SPEECH = (function () {
     return result;
   }
 
-  /** Several ranked male candidates (younger/fresher-sounding first) so the learner can try each and pick one. */
-  function getMaleVoiceOptions(max) {
-    max = max || 6;
+  /**
+   * Several ranked voices of one gender (best/youngest-sounding first, novelty
+   * voices excluded, duplicates by name removed) so the learner can try each
+   * and pick one. gender: "male" | "female".
+   */
+  function getVoiceOptions(gender, max) {
+    max = max || 5;
+    const bonus = gender === "female" ? femalePriorityBonus : malePriorityBonus;
     const ranked = [...voices]
-      .filter((v) => !isBadVoice(v) && voiceGender(v) === "male")
+      .filter((v) => !isBadVoice(v) && voiceGender(v) === gender)
       .sort((a, b) => {
         const scoreDiff = voiceQualityScore(b) - voiceQualityScore(a);
-        return scoreDiff !== 0 ? scoreDiff : malePriorityBonus(b) - malePriorityBonus(a);
+        return scoreDiff !== 0 ? scoreDiff : bonus(b) - bonus(a);
       });
-    return ranked.slice(0, max);
+    // De-dupe by display name — devices often list the same voice under
+    // several locales, which would otherwise fill the list with repeats.
+    const seen = new Set();
+    const unique = [];
+    for (const v of ranked) {
+      const key = (v.name || "").toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(v);
+    }
+    return unique.slice(0, max);
   }
+
+  /** Kept for callers that only need male options. */
+  function getMaleVoiceOptions(max) { return getVoiceOptions("male", max || 6); }
 
   function pickVoice() {
     // A voice saved in settings before the bad-voice blacklist existed could
@@ -298,6 +316,7 @@ window.SF_SPEECH = (function () {
     getEnglishVoices,
     getCuratedVoices,
     getMaleVoiceOptions,
+    getVoiceOptions,
     setPreferredVoice,
     isHighQualityVoice,
     isListening: () => listening
