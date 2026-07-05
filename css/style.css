@@ -1403,37 +1403,20 @@ body[data-view="progress"] .progress-panel { display: flex; }
 
   /* On mobile the input-bar gets moved (by JS) inside #bottomDock, right
      above the nav — so the mic/text-input/speaker row, the nav, and the
-     footer are ONE real fixed element with one shared background/border,
-     instead of separate pieces that only look alike. Fixes both the
-     "these look like two floating bars" issue and removes any chance of
-     the pieces drifting apart or leaving a gap between them. */
-  .chat-panel { padding-bottom: var(--dock-total-h, 140px); }
+     footer are ONE real element with one shared background/border.
+     Crucially it is NOT position:fixed: it stays in the body's normal flex
+     flow as the LAST child of the flex column (body is height:100dvh; flex
+     column), so it's always flush at the very bottom of the viewport. A
+     fixed; bottom:0 element on iOS standalone anchors to a viewport that
+     doesn't reach the physical bottom, leaving dark background below the
+     dock — flex flow has no such anchoring quirk. */
   .bottom-dock {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
     z-index: 90;
     background: rgba(19, 26, 36, 0.92);
     backdrop-filter: blur(14px);
     border-top: 1px solid var(--border);
     padding-bottom: env(safe-area-inset-bottom);
-  }
-  /* On some real iPhones in standalone mode, a position:fixed; bottom:0
-     element's box doesn't actually reach the true physical bottom edge —
-     a gap of raw system background shows below it regardless of what CSS
-     unit or JS-measured height is used. Rather than guess at the exact
-     cause again, bleed this element's own background further down past
-     its own box so that gap — whatever its real size — gets covered by
-     the same color instead of showing through. */
-  .bottom-dock::after {
-    content: "";
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    height: 60px;
-    background: rgba(19, 26, 36, 0.92);
+    flex-shrink: 0;
   }
   .bottom-dock .input-bar {
     border-top: none;
