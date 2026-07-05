@@ -51,6 +51,49 @@
   window.addEventListener("pageshow", () => setTimeout(syncDockOffset, 300));
   document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(syncDockOffset, 100); });
 
+  // ---- Draggable dock: let the user place the bottom dock exactly where they
+  // want vertically. Positive offset = dock moved up; negative = pushed down
+  // past the screen edge (useful to swallow the iOS standalone bottom sliver).
+  // Persisted to localStorage; double-tap the grip resets to 0.
+  const DOCK_OFFSET_KEY = "sf_dock_offset";
+  let dockOffset = parseInt(localStorage.getItem(DOCK_OFFSET_KEY) || "0", 10) || 0;
+  function applyDockOffset() {
+    document.documentElement.style.setProperty("--dock-bottom-offset", dockOffset + "px");
+  }
+  applyDockOffset();
+
+  const dockHandle = $("dockHandle");
+  if (dockHandle) {
+    let dragging = false, startY = 0, startOffset = 0;
+    dockHandle.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      startY = e.clientY;
+      startOffset = dockOffset;
+      try { dockHandle.setPointerCapture(e.pointerId); } catch { /* noop */ }
+      e.preventDefault();
+    });
+    dockHandle.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      // dragging up (clientY decreases) raises the dock (offset increases)
+      dockOffset = Math.round(startOffset - (e.clientY - startY));
+      applyDockOffset();
+    });
+    const endDrag = () => {
+      if (!dragging) return;
+      dragging = false;
+      localStorage.setItem(DOCK_OFFSET_KEY, String(dockOffset));
+      log?.info("Dock offset set", { dockOffset });
+    };
+    dockHandle.addEventListener("pointerup", endDrag);
+    dockHandle.addEventListener("pointercancel", endDrag);
+    dockHandle.addEventListener("dblclick", () => {
+      dockOffset = 0;
+      applyDockOffset();
+      localStorage.setItem(DOCK_OFFSET_KEY, "0");
+      showToast("מיקום הסרגל אופס");
+    });
+  }
+
   const chatMessages = $("chatMessages");
   const micBtn = $("micBtn");
   const textInput = $("textInput");
