@@ -55,19 +55,25 @@ export default {
       return new Response("Empty input", { status: 400, headers: cors });
     }
 
+    // gpt-4o-mini-tts is OpenAI's most natural TTS model and accepts a tone
+    // "instructions" string. Only tts-1 / tts-1-hd support the "speed" param.
+    const model = body.model || "gpt-4o-mini-tts";
+    const payload = {
+      model,
+      voice: body.voice || "nova",
+      input,
+      response_format: "mp3",
+    };
+    if (body.instructions) payload.instructions = String(body.instructions).slice(0, 500);
+    if (model.indexOf("tts-1") === 0) payload.speed = Math.min(4, Math.max(0.25, Number(body.speed) || 1));
+
     const openaiRes = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: body.model || "tts-1",       // "tts-1-hd" for higher quality (slower)
-        voice: body.voice || "nova",
-        input,
-        response_format: "mp3",
-        speed: Math.min(4, Math.max(0.25, Number(body.speed) || 1)),
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!openaiRes.ok) {
