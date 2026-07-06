@@ -6,34 +6,29 @@ window.SF_SPEECH = (function () {
   let recognition = null;
   let listening = false;
   let callbacks = { onInterim: null, onFinal: null, onStateChange: null, onError: null };
+  let startWatchdog = null; // recovers a recognition that hangs without ending
+  let stopWatchdog = null;  // recovers a stop() whose onend never fires
 
-  function init(cb) {
-    callbacks = { ...callbacks, ...cb };
-    if (!supported) return;
+  function clearWatchdogs() {
+    if (startWatchdog) { clearTimeout(startWatchdog); startWatchdog = null; }
+    if (stopWatchdog) { clearTimeout(stopWatchdog); stopWatchdog = null; }
+  }
 
-    recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-      listening = true;
-      callbacks.onStateChange?.(true);
-    };
-
-    recognition.onend = () => {
-      listening = false;
-      callbacks.onStateChange?.(false);
-    };
-
-    recognition.onerror = (e) => {
+  function buildRecognition() {
+    const rec = new SpeechRecognition();
+    rec.lang = "en-US";
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+    rec.onstart = () => { listening = true; callbacks.onStateChange?.(true); };
+    rec.onend = () => { clearWatchdogs(); listening = false; callbacks.onStateChange?.(false); };
+    rec.onerror = (e) => {
+      clearWatchdogs();
       listening = false;
       callbacks.onStateChange?.(false);
       callbacks.onError?.(e.error);
     };
-
-    recognition.onresult = (event) => {
+    rec.onresult = (event) => {
       let interim = "";
       let final = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -44,23 +39,58 @@ window.SF_SPEECH = (function () {
       if (interim) callbacks.onInterim?.(interim.trim());
       if (final.trim()) callbacks.onFinal?.(final.trim());
     };
+    return rec;
+  }
+
+  function init(cb) {
+    callbacks = { ...callbacks, ...cb };
+    if (!supported) return;
+    recognition = buildRecognition();
+  }
+
+  // A hung SpeechRecognition instance (iOS sometimes never fires onend) can
+  // never recover — discard it, build a fresh one, and unstick the UI state.
+  function forceReset() {
+    clearWatchdogs();
+    if (recognition) {
+      try { recognition.onend = null; recognition.onerror = null; recognition.onresult = null; recognition.abort(); } catch { /* noop */ }
+    }
+    recognition = buildRecognition();
+    listening = false;
+    callbacks.onStateChange?.(false);
   }
 
   function start() {
     if (!recognition || listening) return;
     stopSpeaking(); // don't transcribe the bot's own voice
     primeAudio(); // cancel() above can re-lock iOS's speech engine — re-prime it now, in this same tap
-    try { recognition.start(); } catch { /* already started */ }
+    try {
+      recognition.start();
+    } catch {
+      // "already started" from a stuck instance — rebuild and retry once.
+      forceReset();
+      try { recognition.start(); } catch { /* give up this tap */ }
+    }
+    // If recognition never ends on its own (iOS hang), auto-recover so the
+    // mic button doesn't stay stuck in the "listening" state forever.
+    clearWatchdogs();
+    startWatchdog = setTimeout(forceReset, 15000);
   }
 
   function stop() {
-    if (recognition && listening) recognition.stop();
+    if (!recognition) return;
+    try { recognition.stop(); } catch { /* noop */ }
+    // If onend doesn't fire shortly, the instance is stuck — hard-reset it so
+    // the very next mic tap works instead of doing nothing.
+    if (stopWatchdog) clearTimeout(stopWatchdog);
+    stopWatchdog = setTimeout(() => { if (listening) forceReset(); }, 1200);
   }
 
   /* Abort discards the current recognition — no final result is delivered */
   function abort() {
     if (recognition && listening) {
       try { recognition.abort(); } catch { /* noop */ }
+      stopWatchdog = setTimeout(() => { if (listening) forceReset(); }, 1200);
     }
   }
 
@@ -81,14 +111,19 @@ window.SF_SPEECH = (function () {
     rec.continuous = false;
     rec.interimResults = false;
     rec.maxAlternatives = 1;
+    let done = false;
+    // Watchdog: if it hangs and never fires onend, force-stop so the game's
+    // mic button doesn't stay stuck listening forever.
+    const watchdog = setTimeout(() => { try { rec.abort(); } catch { /* noop */ } }, 15000);
+    const finish = () => { if (done) return; done = true; clearTimeout(watchdog); cb.onState?.(false); cb.onEnd?.(); };
     rec.onstart = () => cb.onState?.(true);
-    rec.onend = () => { cb.onState?.(false); cb.onEnd?.(); };
-    rec.onerror = (e) => { cb.onState?.(false); cb.onError?.(e.error); };
+    rec.onend = finish;
+    rec.onerror = (e) => { clearTimeout(watchdog); if (!done) cb.onError?.(e.error); finish(); };
     rec.onresult = (event) => {
       const text = event.results[0]?.[0]?.transcript || "";
       cb.onResult?.(text.trim());
     };
-    try { rec.start(); } catch { /* noop */ }
+    try { rec.start(); } catch { clearTimeout(watchdog); cb.onState?.(false); }
     return rec;
   }
 
