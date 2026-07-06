@@ -1298,6 +1298,19 @@
     const select = $("voiceSelect");
     select.innerHTML = '<option value="">אוטומטי (מומלץ)</option>';
 
+    // Premium OpenAI voices first (when a proxy is configured) — far more natural.
+    if (speech.hasOpenAITts()) {
+      const group = document.createElement("optgroup");
+      group.label = "⭐ קולות פרימיום (OpenAI)";
+      speech.getOpenAIVoices().forEach((v) => {
+        const opt = document.createElement("option");
+        opt.value = "openai:" + v.id;
+        opt.textContent = `⭐ ${v.id} — ${v.he}`;
+        group.appendChild(opt);
+      });
+      select.appendChild(group);
+    }
+
     const females = speech.getVoiceOptions("female", 5);
     const males = speech.getVoiceOptions("male", 5);
     const addOptions = (list, heLabel) => {
@@ -1309,16 +1322,23 @@
         select.appendChild(opt);
       });
     };
-    addOptions(females, "קול נשי");
-    addOptions(males, "קול גברי");
+    addOptions(females, "קול נשי (מכשיר)");
+    addOptions(males, "קול גברי (מכשיר)");
     select.value = settings.voice || "";
 
     const total = females.length + males.length;
-    $("voiceCountHint").textContent = total >= 2
-      ? `${females.length} קולות נשיים ו-${males.length} קולות גבריים זמינים. בחר קול ולחץ 🔊 בדיקת קול כדי לשמוע אותו.`
-      : `⚠️ המכשיר שלך חושף מעט מאוד קולות אנגליים לדפדפן. כדי להוסיף קולות איכותיים: Settings ← Accessibility ← Spoken Content ← Voices ← English (הורד קולות Enhanced/Premium).`;
+    $("voiceCountHint").textContent = speech.hasOpenAITts()
+      ? `קולות הפרימיום של OpenAI זמינים למעלה ⭐. בחר אחד ולחץ 🔊 בדיקת קול כדי לשמוע.`
+      : (total >= 2
+        ? `${females.length} קולות נשיים ו-${males.length} קולות גבריים (של המכשיר). לקולות טבעיים ומקצועיים יותר — הגדר פרוקסי OpenAI למטה.`
+        : `⚠️ המכשיר שלך חושף מעט מאוד קולות. לקולות איכותיים באמת — הגדר פרוקסי OpenAI למטה.`);
   }
   document.addEventListener("sf:voicesChanged", populateVoices);
+
+  document.addEventListener("sf:ttsError", (e) => {
+    showToast("שגיאת קול פרימיום: " + (e.detail || "נסה שוב"), true);
+    log?.error("OpenAI TTS failed", { detail: e.detail });
+  });
 
   // Live pixel measurements for diagnosing device-specific display bugs
   // (e.g. the persistent bottom gap on some iPhones) — a screenshot of this
@@ -1351,6 +1371,7 @@
 
   function openSettings() {
     $("apiKeyInput").value = store.getApiKey();
+    $("ttsProxyInput").value = store.getTtsProxy();
     $("ttsToggle").checked = settings.tts;
     $("autoSendToggle").checked = Boolean(settings.autoSend);
     $("rateInput").value = settings.rate;
@@ -1373,13 +1394,26 @@
   });
 
   $("testVoiceBtn").addEventListener("click", () => {
+    // apply the currently-typed proxy so premium voices can be previewed before saving
+    speech.setTtsProxy($("ttsProxyInput").value);
     speech.setPreferredVoice($("voiceSelect").value);
     speech.speak("Hi! This is how I sound. Let's practice English together!", parseFloat($("rateInput").value));
+  });
+
+  // Re-render the voice list when a proxy URL is typed/pasted, so the premium
+  // OpenAI voices appear immediately without needing to save + reopen first.
+  $("ttsProxyInput").addEventListener("input", () => {
+    speech.setTtsProxy($("ttsProxyInput").value);
+    const keep = $("voiceSelect").value;
+    populateVoices();
+    $("voiceSelect").value = keep;
   });
 
   $("saveSettingsBtn").addEventListener("click", () => {
     const hadKey = !api.isDemoMode();
     store.setApiKey($("apiKeyInput").value);
+    store.setTtsProxy($("ttsProxyInput").value);
+    speech.setTtsProxy(store.getTtsProxy());
     settings.tts = $("ttsToggle").checked;
     settings.autoSend = $("autoSendToggle").checked;
     settings.rate = parseFloat($("rateInput").value);
@@ -1480,6 +1514,7 @@
   });
 
   // ================= Init =================
+  speech.setTtsProxy(store.getTtsProxy());
   speech.setPreferredVoice(settings.voice);
   renderDemoBanner();
   renderSpeakerBtn();

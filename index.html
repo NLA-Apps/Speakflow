@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=41">
+  <link rel="stylesheet" href="css/style.css?v=42">
 </head>
 <body data-view="chat">
 
@@ -343,7 +343,7 @@
       <button data-view="practice"><span class="nav-icon">🎯</span>תרגול<span class="due-badge" id="dueBadgeMobile" hidden></span></button>
       <button data-view="progress"><span class="nav-icon">📈</span>התקדמות</button>
     </nav>
-    <div class="app-footer">© NLA-Apps · v41</div>
+    <div class="app-footer">© NLA-Apps · v42</div>
   </div>
 
   <!-- ===== Word tooltip (small bubble anchored right above the tapped word) ===== -->
@@ -374,8 +374,14 @@
         <label class="field">
           <span class="field-label">קול הבוט</span>
           <select id="voiceSelect" dir="ltr"></select>
-          <span class="field-hint">בחרנו את הקול הכי טבעי מכל מגדר שהמכשיר שלך מציע. <button type="button" class="link-btn" id="testVoiceBtn">🔊 בדיקת קול</button></span>
+          <span class="field-hint">בחר קול ולחץ <button type="button" class="link-btn" id="testVoiceBtn">🔊 בדיקת קול</button> כדי לשמוע אותו.</span>
           <span class="field-hint" id="voiceCountHint"></span>
+        </label>
+
+        <label class="field">
+          <span class="field-label">קולות פרימיום (OpenAI) — כתובת פרוקסי TTS</span>
+          <input type="text" id="ttsProxyInput" dir="ltr" placeholder="https://speakflow-tts.xxx.workers.dev">
+          <span class="field-hint">להוספת קולות טבעיים ומקצועיים (nova, shimmer ועוד). דורש הקמת פרוקסי חינמי חד-פעמי — ההוראות בקובץ <span dir="ltr">openai-tts-worker.js</span> שבפרויקט. אחרי ההקמה, הדבק כאן את הכתובת והקולות יופיעו למעלה ברשימה.</span>
         </label>
 
         <label class="field">
@@ -535,15 +541,15 @@
 
   <div class="toast" id="toast" hidden></div>
 
-  <script src="js/config.js?v=41"></script>
-  <script src="js/logger.js?v=41"></script>
-  <script src="js/storage.js?v=41"></script>
-  <script src="js/translate.js?v=41"></script>
-  <script src="js/srs.js?v=41"></script>
-  <script src="js/progress.js?v=41"></script>
-  <script src="js/insights.js?v=41"></script>
-  <script src="js/speech.js?v=41"></script>
-  <script src="js/api.js?v=41"></script>
-  <script src="js/app.js?v=41"></script>
+  <script src="js/config.js?v=42"></script>
+  <script src="js/logger.js?v=42"></script>
+  <script src="js/storage.js?v=42"></script>
+  <script src="js/translate.js?v=42"></script>
+  <script src="js/srs.js?v=42"></script>
+  <script src="js/progress.js?v=42"></script>
+  <script src="js/insights.js?v=42"></script>
+  <script src="js/speech.js?v=42"></script>
+  <script src="js/api.js?v=42"></script>
+  <script src="js/app.js?v=42"></script>
 </body>
 </html>

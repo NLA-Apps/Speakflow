@@ -2,6 +2,7 @@
 window.SF_STORAGE = (function () {
   const KEYS = {
     API_KEY: "sf_api_key",
+    TTS_PROXY: "sf_tts_proxy",   // OpenAI TTS proxy (Cloudflare Worker) URL
     SETTINGS: "sf_settings",
     VOCAB: "sf_vocabulary",     // all-time set of words the learner has used
     LEVEL: "sf_level",          // last estimated CEFR level
@@ -29,6 +30,9 @@ window.SF_STORAGE = (function () {
   return {
     getApiKey: () => get(KEYS.API_KEY, ""),
     setApiKey: (k) => set(KEYS.API_KEY, (k || "").trim()),
+
+    getTtsProxy: () => get(KEYS.TTS_PROXY, ""),
+    setTtsProxy: (u) => set(KEYS.TTS_PROXY, (u || "").trim().replace(/\/+$/, "")),
 
     getSettings: () => {
       const settings = { tts: true, rate: 0.9, voice: "", goal: 30, autoSend: true, ...get(KEYS.SETTINGS, {}) };

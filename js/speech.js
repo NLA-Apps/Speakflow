@@ -96,6 +96,65 @@ window.SF_SPEECH = (function () {
   let voices = [];
   let preferredVoiceName = "";
 
+  // ---- OpenAI neural TTS (via a user-hosted proxy; see openai-tts-worker.js).
+  // The 6 OpenAI voices are far more natural than the device's built-in ones.
+  // Selected voice is stored as e.g. "openai:nova".
+  let ttsProxyUrl = "";
+  function setTtsProxy(url) { ttsProxyUrl = (url || "").trim().replace(/\/+$/, ""); }
+  function hasOpenAITts() { return Boolean(ttsProxyUrl); }
+  const OPENAI_VOICES = [
+    { id: "nova",    he: "נשי צעיר וחם" },
+    { id: "shimmer", he: "נשי רך ועדין" },
+    { id: "fable",   he: "נשי בריטי אקספרסיבי" },
+    { id: "alloy",   he: "ניטרלי מאוזן" },
+    { id: "echo",    he: "גברי בהיר" },
+    { id: "onyx",    he: "גברי עמוק" }
+  ];
+  function getOpenAIVoices() { return OPENAI_VOICES; }
+
+  // A single reusable <audio> element, unlocked on the first user gesture so
+  // iOS will let us play the fetched TTS clip later (outside a gesture).
+  let ttsAudio = null;
+  let ttsAudioUnlocked = false;
+  const SILENT_MP3 = "data:audio/mpeg;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA";
+  function ensureAudio() {
+    if (!ttsAudio) { ttsAudio = new Audio(); ttsAudio.preload = "auto"; }
+    return ttsAudio;
+  }
+  function unlockAudioElement() {
+    if (ttsAudioUnlocked) return;
+    const a = ensureAudio();
+    a.src = SILENT_MP3;
+    const p = a.play();
+    if (p && p.then) p.then(() => { ttsAudioUnlocked = true; }).catch(() => { /* will retry next gesture */ });
+    else ttsAudioUnlocked = true;
+  }
+
+  let currentClipUrl = "";
+  function speakViaOpenAI(text, voiceId, rate) {
+    if (!ttsProxyUrl || !text) return;
+    stopSpeaking();
+    const a = ensureAudio();
+    fetch(ttsProxyUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ input: text, voice: voiceId, model: "tts-1", speed: rate || 1 })
+    })
+      .then((r) => {
+        if (!r.ok) return r.text().then((t) => { throw new Error("TTS " + r.status + ": " + t.slice(0, 120)); });
+        return r.blob();
+      })
+      .then((blob) => {
+        if (currentClipUrl) URL.revokeObjectURL(currentClipUrl);
+        currentClipUrl = URL.createObjectURL(blob);
+        a.src = currentClipUrl;
+        return a.play();
+      })
+      .catch((err) => {
+        document.dispatchEvent(new CustomEvent("sf:ttsError", { detail: String(err && err.message || err) }));
+      });
+  }
+
   function refreshVoices() {
     if (!("speechSynthesis" in window)) return;
     voices = speechSynthesis.getVoices().filter((v) => v.lang.startsWith("en"));
@@ -259,17 +318,25 @@ window.SF_SPEECH = (function () {
   // engine on iOS, so this isn't a one-time thing: call it again from
   // every gesture that might cancel(), right after the cancel.
   function primeAudio() {
+    unlockAudioElement(); // also unlock the HTMLAudioElement used for OpenAI TTS
     if (!("speechSynthesis" in window)) return;
     const u = new SpeechSynthesisUtterance(" ");
     u.volume = 0;
     speechSynthesis.speak(u);
   }
-  if ("speechSynthesis" in window) {
-    document.addEventListener("pointerdown", primeAudio, { capture: true });
-  }
+  document.addEventListener("pointerdown", primeAudio, { capture: true });
 
   function speak(text, rate, attempt) {
-    if (!("speechSynthesis" in window) || !text) return;
+    if (!text) return;
+
+    // If an OpenAI neural voice is selected and a proxy is configured, use it —
+    // it sounds far more natural than the device's built-in voices.
+    if (ttsProxyUrl && preferredVoiceName && preferredVoiceName.indexOf("openai:") === 0) {
+      speakViaOpenAI(text, preferredVoiceName.slice("openai:".length), rate);
+      return;
+    }
+
+    if (!("speechSynthesis" in window)) return;
     attempt = attempt || 0;
 
     // Voices often aren't loaded yet on the very first speak() call of a
@@ -301,6 +368,7 @@ window.SF_SPEECH = (function () {
 
   function stopSpeaking() {
     if ("speechSynthesis" in window) speechSynthesis.cancel();
+    if (ttsAudio && !ttsAudio.paused) { try { ttsAudio.pause(); } catch { /* noop */ } }
   }
 
   return {
@@ -318,6 +386,9 @@ window.SF_SPEECH = (function () {
     getMaleVoiceOptions,
     getVoiceOptions,
     setPreferredVoice,
+    setTtsProxy,
+    hasOpenAITts,
+    getOpenAIVoices,
     isHighQualityVoice,
     isListening: () => listening
   };
