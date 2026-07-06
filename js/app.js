@@ -1311,26 +1311,29 @@
       select.appendChild(group);
     }
 
-    const females = speech.getVoiceOptions("female", 5);
-    const males = speech.getVoiceOptions("male", 5);
-    const addOptions = (list, heLabel) => {
-      list.forEach((voice, i) => {
-        const opt = document.createElement("option");
-        opt.value = voice.name;
-        // gender label + running number + the voice's own name to tell them apart
-        opt.textContent = `🎙️ ${heLabel} ${i + 1} — ${voice.name}`;
-        select.appendChild(opt);
-      });
-    };
-    addOptions(females, "קול נשי (מכשיר)");
-    addOptions(males, "קול גברי (מכשיר)");
+    // Device voices trimmed to the single best female + best male, labeled in
+    // the same clean style as the premium ones (no long lists, no raw names).
+    const females = speech.getVoiceOptions("female", 1);
+    const males = speech.getVoiceOptions("male", 1);
+    if (females[0]) {
+      const opt = document.createElement("option");
+      opt.value = females[0].name;
+      opt.textContent = "🎙️ קול נשי (מכשיר)";
+      select.appendChild(opt);
+    }
+    if (males[0]) {
+      const opt = document.createElement("option");
+      opt.value = males[0].name;
+      opt.textContent = "🎙️ גברי בהיר (מכשיר)";
+      select.appendChild(opt);
+    }
     select.value = settings.voice || "";
 
-    const total = females.length + males.length;
+    const total = (females[0] ? 1 : 0) + (males[0] ? 1 : 0);
     $("voiceCountHint").textContent = speech.hasOpenAITts()
-      ? `קולות הפרימיום של OpenAI זמינים למעלה ⭐. בחר אחד ולחץ 🔊 בדיקת קול כדי לשמוע.`
-      : (total >= 2
-        ? `${females.length} קולות נשיים ו-${males.length} קולות גבריים (של המכשיר). לקולות טבעיים ומקצועיים יותר — הגדר פרוקסי OpenAI למטה.`
+      ? `קולות הפרימיום ⭐ למעלה נשמעים הכי טבעי. קולות המכשיר הם הבסיסיים של הטלפון (לא ניתן לשנות את הצליל שלהם).`
+      : (total >= 1
+        ? `אלה הקולות הבסיסיים של המכשיר. לקולות טבעיים ומקצועיים באמת — הגדר פרוקסי OpenAI למטה.`
         : `⚠️ המכשיר שלך חושף מעט מאוד קולות. לקולות איכותיים באמת — הגדר פרוקסי OpenAI למטה.`);
   }
   document.addEventListener("sf:voicesChanged", populateVoices);
