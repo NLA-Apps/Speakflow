@@ -102,12 +102,21 @@ window.SF_SPEECH = (function () {
   let ttsProxyUrl = "";
   function setTtsProxy(url) { ttsProxyUrl = (url || "").trim().replace(/\/+$/, ""); }
   function hasOpenAITts() { return Boolean(ttsProxyUrl); }
+  // gpt-4o-mini-tts is OpenAI's most natural TTS model (far better than tts-1)
+  // and accepts a tone "instructions" string. Note: ChatGPT's Advanced-Voice
+  // voices (Spruce/Maple/…) are NOT available via the API — these are the ones
+  // the API exposes; the fuller/newer set sounds more human than the originals.
+  const OPENAI_MODEL = "gpt-4o-mini-tts";
+  const OPENAI_INSTRUCTIONS = "Speak in a warm, natural, friendly young-adult voice — like a real person having a relaxed conversation, not a narrator reading text. Clear and expressive, never robotic.";
   const OPENAI_VOICES = [
-    { id: "nova",    he: "נשי צעיר וחם" },
+    { id: "coral",   he: "נשי צעיר וחם (מומלץ)" },
+    { id: "nova",    he: "נשי אנרגטי" },
     { id: "shimmer", he: "נשי רך ועדין" },
-    { id: "fable",   he: "נשי בריטי אקספרסיבי" },
-    { id: "alloy",   he: "ניטרלי מאוזן" },
+    { id: "sage",    he: "נשי רגוע ובוגר-צעיר" },
+    { id: "alloy",   he: "ניטרלי-נשי מאוזן" },
+    { id: "ash",     he: "גברי צעיר וטבעי (מומלץ)" },
     { id: "echo",    he: "גברי בהיר" },
+    { id: "ballad",  he: "גברי רך ואקספרסיבי" },
     { id: "onyx",    he: "גברי עמוק" }
   ];
   function getOpenAIVoices() { return OPENAI_VOICES; }
@@ -138,7 +147,7 @@ window.SF_SPEECH = (function () {
     fetch(ttsProxyUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: text, voice: voiceId, model: "tts-1", speed: rate || 1 })
+      body: JSON.stringify({ input: text, voice: voiceId, model: OPENAI_MODEL, instructions: OPENAI_INSTRUCTIONS, speed: rate || 1 })
     })
       .then((r) => {
         if (!r.ok) return r.text().then((t) => { throw new Error("TTS " + r.status + ": " + t.slice(0, 120)); });
