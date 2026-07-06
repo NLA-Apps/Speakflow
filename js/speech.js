@@ -109,15 +109,8 @@ window.SF_SPEECH = (function () {
   const OPENAI_MODEL = "gpt-4o-mini-tts";
   const OPENAI_INSTRUCTIONS = "Speak in a warm, natural, friendly young-adult voice — like a real person having a relaxed conversation, not a narrator reading text. Clear and expressive, never robotic.";
   const OPENAI_VOICES = [
-    { id: "coral",   he: "נשי צעיר וחם (מומלץ)" },
-    { id: "nova",    he: "נשי אנרגטי" },
-    { id: "shimmer", he: "נשי רך ועדין" },
-    { id: "sage",    he: "נשי רגוע ובוגר-צעיר" },
-    { id: "alloy",   he: "ניטרלי-נשי מאוזן" },
-    { id: "ash",     he: "גברי צעיר וטבעי (מומלץ)" },
-    { id: "echo",    he: "גברי בהיר" },
-    { id: "ballad",  he: "גברי רך ואקספרסיבי" },
-    { id: "onyx",    he: "גברי עמוק" }
+    { id: "nova", he: "קול נשי" },
+    { id: "echo", he: "גברי בהיר" }
   ];
   function getOpenAIVoices() { return OPENAI_VOICES; }
 
