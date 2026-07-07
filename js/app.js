@@ -179,6 +179,62 @@
     return row;
   }
 
+  /* A bot bubble that fills in progressively as the reply streams. During the
+     stream we show fast plain text; finalize() re-renders it with tappable
+     words + the translate/save/speak actions (same as a normal bot message). */
+  function addStreamingBotMessage() {
+    removeWelcome();
+    const row = document.createElement("div");
+    row.className = "msg-row bot";
+    row._text = "";
+    const bubble = document.createElement("div");
+    bubble.className = "msg bot";
+    const name = document.createElement("span");
+    name.className = "bot-name";
+    name.textContent = "SKY";
+    bubble.appendChild(name);
+    const textWrap = document.createElement("span");
+    textWrap.className = "msg-text";
+    bubble.appendChild(textWrap);
+    row.appendChild(bubble);
+    chatMessages.appendChild(row);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    const atBottom = () => chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < 60;
+    return {
+      row,
+      update(text) {
+        const stick = atBottom();
+        row._text = text;
+        textWrap.textContent = text;
+        if (stick) chatMessages.scrollTop = chatMessages.scrollHeight;
+      },
+      finalize(finalText) {
+        row._text = finalText;
+        textWrap.innerHTML = "";
+        buildTappableText(textWrap, finalText);
+
+        const actions = document.createElement("div");
+        actions.className = "msg-actions";
+        const trBtn = document.createElement("button");
+        trBtn.textContent = "🌐 תרגם";
+        trBtn.title = "תרגם את כל המשפט";
+        trBtn.addEventListener("click", () => translateMessage(bubble, row._text, trBtn));
+        const saveBtn = document.createElement("button");
+        saveBtn.textContent = "🔖 שמור";
+        saveBtn.title = "שמור את המשפט ללימוד";
+        saveBtn.addEventListener("click", () => saveSentence(row._text, saveBtn));
+        const speakBtn = document.createElement("button");
+        speakBtn.textContent = "🔊";
+        speakBtn.title = "השמע";
+        speakBtn.addEventListener("click", () => speech.speak(row._text, settings.rate));
+        actions.append(trBtn, saveBtn, speakBtn);
+        row.appendChild(actions);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    };
+  }
+
   /* Removes every message row that comes after `row` (used when an earlier
      message is edited — everything that followed it is now stale). */
   function removeMessagesAfter(row) {
@@ -447,8 +503,13 @@
     });
 
     const typing = addTypingIndicator();
+    let stream = null;
     try {
-      const result = await api.sendMessage(text);
+      const result = await api.sendMessage(text, (partial) => {
+        // first delta: swap the typing dots for a live, growing bot bubble
+        if (!stream) { typing.remove(); stream = addStreamingBotMessage(); }
+        stream.update(partial);
+      });
       cancelBar.remove();
       typing.remove();
 
@@ -456,18 +517,21 @@
         // the reply beat the cancel click (e.g. demo mode) — discard it
         api.undoLastExchange();
         row.remove();
+        if (stream) stream.row.remove();
         showToast("ההודעה בוטלה — לא נשלח כלום 👍");
         return;
       }
 
       insights.trackUtterance(text);
       updateStreakBadge();
-      addMessage("bot", result.reply);
+      if (stream) stream.finalize(result.reply);
+      else addMessage("bot", result.reply); // demo mode / no streaming
       insights.applyInsights(result.insights);
       if (settings.tts) speech.speak(result.reply, settings.rate);
     } catch (err) {
       cancelBar.remove();
       typing.remove();
+      if (stream) stream.row.remove();
       if (cancelToken.cancelled || err.aborted) {
         row.remove();
         showToast("ההודעה בוטלה — לא נשלח כלום 👍");
@@ -1377,6 +1441,7 @@
     $("ttsProxyInput").value = store.getTtsProxy();
     $("ttsToggle").checked = settings.tts;
     $("autoSendToggle").checked = Boolean(settings.autoSend);
+    $("webSearchToggle").checked = Boolean(settings.webSearch);
     $("rateInput").value = settings.rate;
     $("rateValue").textContent = settings.rate;
     $("goalInput").value = settings.goal || cfg.DEFAULT_GOAL;
@@ -1419,6 +1484,7 @@
     speech.setTtsProxy(store.getTtsProxy());
     settings.tts = $("ttsToggle").checked;
     settings.autoSend = $("autoSendToggle").checked;
+    settings.webSearch = $("webSearchToggle").checked;
     settings.rate = parseFloat($("rateInput").value);
     settings.goal = Math.max(10, parseInt($("goalInput").value, 10) || cfg.DEFAULT_GOAL);
     settings.voice = $("voiceSelect").value;

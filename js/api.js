@@ -47,13 +47,13 @@ window.SF_API = (function () {
    * Throws Error with a Hebrew-friendly .userMessage on failure (or .aborted === true
    * if the caller cancelled the in-flight request via cancelPending()).
    */
-  async function sendMessage(userText) {
+  async function sendMessage(userText, onDelta) {
     history.push({ role: "user", content: userText });
     log?.info("User message sent", { text: userText, scenario: scenarioId, demo: isDemoMode() });
 
     let result;
     try {
-      result = isDemoMode() ? demoReply(userText) : await claudeReply();
+      result = isDemoMode() ? demoReply(userText) : await claudeReply(onDelta);
     } catch (err) {
       history.pop(); // don't poison history with an unanswered turn
       persist();
@@ -100,10 +100,67 @@ window.SF_API = (function () {
     persist();
   }
 
-  // ---------- Real Claude call ----------
-  async function claudeReply() {
+  /**
+   * Pull the (possibly still-growing) value of the JSON "reply" field out of a
+   * partial streamed JSON string, so we can show Sky's words as they arrive.
+   * Returns "" until the key appears; stops cleanly at the end of the buffer
+   * even if the closing quote hasn't streamed in yet.
+   */
+  function extractReply(jsonPartial) {
+    const m = jsonPartial.match(/"reply"\s*:\s*"/);
+    if (!m) return "";
+    let i = m.index + m[0].length;
+    let out = "";
+    while (i < jsonPartial.length) {
+      const ch = jsonPartial[i];
+      if (ch === "\\") {
+        const next = jsonPartial[i + 1];
+        if (next === undefined) break; // incomplete escape at buffer edge
+        if (next === "n") out += "\n";
+        else if (next === "t") out += "\t";
+        else if (next === "r") out += "\r";
+        else if (next === "u") {
+          const hex = jsonPartial.slice(i + 2, i + 6);
+          if (hex.length < 4) break;
+          out += String.fromCharCode(parseInt(hex, 16));
+          i += 6; continue;
+        } else out += next; // ", \, /, etc.
+        i += 2; continue;
+      }
+      if (ch === '"') break; // closing quote → reply string is complete
+      out += ch;
+      i++;
+    }
+    return out;
+  }
+
+  // ---------- Real Claude call (streamed) ----------
+  async function claudeReply(onDelta) {
     const controller = new AbortController();
     currentAbortController = controller;
+    const useSearch = Boolean(store.getSettings().webSearch);
+
+    const requestBody = {
+      model: cfg.MODEL,
+      max_tokens: useSearch ? cfg.MAX_TOKENS : 1024,
+      stream: true,
+      system: [
+        {
+          type: "text",
+          text: cfg.SYSTEM_PROMPT + currentScenario().prompt,
+          cache_control: { type: "ephemeral" }
+        }
+      ],
+      messages: history,
+      output_config: {
+        format: { type: "json_schema", schema: cfg.OUTPUT_SCHEMA }
+      }
+    };
+    // Web search adds real latency on every turn, so it's opt-in — only send
+    // the tool when the learner has enabled current-events mode in settings.
+    if (useSearch) {
+      requestBody.tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }];
+    }
 
     let response;
     try {
@@ -117,33 +174,16 @@ window.SF_API = (function () {
           // required opt-in for calling the API directly from a browser
           "anthropic-dangerous-direct-browser-access": "true"
         },
-        body: JSON.stringify({
-          model: cfg.MODEL,
-          max_tokens: cfg.MAX_TOKENS,
-          system: [
-            {
-              type: "text",
-              text: cfg.SYSTEM_PROMPT + currentScenario().prompt,
-              cache_control: { type: "ephemeral" }
-            }
-          ],
-          messages: history,
-          tools: [
-            { type: "web_search_20250305", name: "web_search", max_uses: 3 }
-          ],
-          output_config: {
-            format: { type: "json_schema", schema: cfg.OUTPUT_SCHEMA }
-          }
-        })
+        body: JSON.stringify(requestBody)
       });
     } catch (err) {
+      currentAbortController = null;
       if (err.name === "AbortError") throw abortedError();
       throw apiError("בעיית רשת — בדוק את חיבור האינטרנט ונסה שוב.");
-    } finally {
-      currentAbortController = null;
     }
 
     if (!response.ok) {
+      currentAbortController = null;
       const body = await response.json().catch(() => ({}));
       const msg = body?.error?.message || "";
       if (response.status === 401) throw apiError("מפתח ה-API לא תקין. בדוק אותו בהגדרות.");
@@ -152,35 +192,63 @@ window.SF_API = (function () {
       throw apiError("שגיאה מהשרת (" + response.status + "): " + msg);
     }
 
-    const data = await response.json();
+    // ---- parse the SSE stream ----
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let fullText = "";     // accumulated JSON text across text_delta events
+    let stopReason = null;
+    let lastEmitted = "";
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let nl;
+        while ((nl = buffer.indexOf("\n")) >= 0) {
+          const line = buffer.slice(0, nl).trim();
+          buffer = buffer.slice(nl + 1);
+          if (!line.startsWith("data:")) continue;
+          const payload = line.slice(5).trim();
+          if (!payload) continue;
+          let evt;
+          try { evt = JSON.parse(payload); } catch { continue; }
+          if (evt.type === "content_block_delta" && evt.delta && evt.delta.type === "text_delta") {
+            fullText += evt.delta.text;
+            if (onDelta) {
+              const partial = extractReply(fullText);
+              if (partial && partial !== lastEmitted) { lastEmitted = partial; onDelta(partial); }
+            }
+          } else if (evt.type === "message_delta" && evt.delta && evt.delta.stop_reason) {
+            stopReason = evt.delta.stop_reason;
+          }
+        }
+      }
+    } catch (err) {
+      currentAbortController = null;
+      if (err.name === "AbortError") throw abortedError();
+      throw apiError("בעיית רשת בזמן קבלת התשובה — נסה שוב.");
+    }
+    currentAbortController = null;
 
-    if (data.stop_reason === "refusal") {
+    if (stopReason === "refusal") {
       throw apiError("הבקשה נדחתה על ידי מסנני הבטיחות — נסה לנסח אחרת.");
     }
-
-    // pick the LAST text block, not the first — when web_search runs first,
-    // the final structured reply is the text block that comes after it
-    const textBlocks = (data.content || []).filter((b) => b.type === "text");
-    const textBlock = textBlocks[textBlocks.length - 1];
-    if (!textBlock) {
-      log?.error("Empty response from Claude", {
-        stop_reason: data.stop_reason,
-        block_types: (data.content || []).map((b) => b.type)
-      });
-      if (data.stop_reason === "max_tokens") {
-        throw apiError("תוצאות החיפוש היו ארוכות מדי והתשובה נקטעה — נסה שוב או נסח את השאלה קצר יותר.");
+    if (!fullText.trim()) {
+      log?.error("Empty streamed response from Claude", { stop_reason: stopReason });
+      if (stopReason === "max_tokens") {
+        throw apiError("התשובה נקטעה — נסה שוב או נסח את השאלה קצר יותר.");
       }
       throw apiError("התקבלה תשובה ריקה — נסה שוב.");
     }
 
     let parsed;
     try {
-      parsed = JSON.parse(textBlock.text);
+      parsed = JSON.parse(fullText);
     } catch {
-      // structured output should guarantee JSON; fall back gracefully
-      return { reply: textBlock.text, insights: null, demo: false };
+      // structured output should guarantee JSON; fall back to the extracted reply
+      return { reply: extractReply(fullText) || fullText, insights: null, demo: false };
     }
-
     return { reply: parsed.reply, insights: parsed.insights, demo: false };
   }
 
