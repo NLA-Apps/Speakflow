@@ -169,9 +169,13 @@
     const speakBtn = document.createElement("button");
     speakBtn.textContent = "🔊";
     speakBtn.title = "השמע";
-    speakBtn.addEventListener("click", () => speech.speak(row._text, settings.rate));
+    speakBtn.addEventListener("click", () => speakMessage(row));
 
-    actions.append(trBtn, saveBtn, speakBtn);
+    const speakTimer = document.createElement("span");
+    speakTimer.className = "speak-timer";
+    speakTimer.hidden = true;
+
+    actions.append(trBtn, saveBtn, speakBtn, speakTimer);
     row.appendChild(actions);
 
     chatMessages.appendChild(row);
@@ -227,8 +231,11 @@
         const speakBtn = document.createElement("button");
         speakBtn.textContent = "🔊";
         speakBtn.title = "השמע";
-        speakBtn.addEventListener("click", () => speech.speak(row._text, settings.rate));
-        actions.append(trBtn, saveBtn, speakBtn);
+        speakBtn.addEventListener("click", () => speakMessage(row));
+        const speakTimer = document.createElement("span");
+        speakTimer.className = "speak-timer";
+        speakTimer.hidden = true;
+        actions.append(trBtn, saveBtn, speakBtn, speakTimer);
         row.appendChild(actions);
         chatMessages.scrollTop = chatMessages.scrollHeight;
       }
@@ -305,13 +312,14 @@
       buildTappableText(textWrap, newText);
       removeMessagesAfter(row);
 
+      const sendStart = performance.now();
       const typing = addTypingIndicator();
       try {
         const result = await api.editAndResend(row._historyIndex, newText);
         typing.remove();
-        addMessage("bot", result.reply);
+        const botRow = addMessage("bot", result.reply);
         insights.applyInsights(result.insights);
-        if (settings.tts) speech.speak(result.reply, settings.rate);
+        if (settings.tts) speakMessage(botRow, sendStart);
         showToast("ההודעה עודכנה ✏️");
       } catch (err) {
         typing.remove();
@@ -346,55 +354,39 @@
     return row;
   }
 
-  // ---- Reply stopwatch: live-counts the seconds from send until Sky actually
-  // starts reading the reply aloud (or until the reply is shown, if TTS is off).
-  // The final time stays on screen until the next message, so it's never missed.
-  let replyTimer = null;
-  function getReplyTimerEl() {
-    let el = $("replyTimer");
-    if (!el) {
-      el = document.createElement("div");
-      el.id = "replyTimer";
-      el.className = "reply-timer";
-      document.body.appendChild(el);
-    }
-    return el;
-  }
-  function startReplyTimer() {
-    if (replyTimer) { clearInterval(replyTimer.interval); clearTimeout(replyTimer.fallback); }
-    const el = getReplyTimerEl();
-    el.classList.remove("done");
-    el.hidden = false;
-    const t0 = performance.now();
-    const render = () => { el.textContent = "⏱ " + ((performance.now() - t0) / 1000).toFixed(1) + " שנ׳"; };
+  // ---- Per-message speak stopwatch: a small "⏱ X.Xs" label sits in each
+  // message's action row (next to the 🔊 button). It counts from a start time
+  // until Sky actually begins reading that message aloud, then freezes. Used
+  // both for the first reply (timed from when the message was sent) and for
+  // any later 🔊 re-read (timed from the button press).
+  let speakTimer = null; // { span, t0, interval, fallback }
+  function runSpeakTimer(span, t0) {
+    if (speakTimer) { clearInterval(speakTimer.interval); clearTimeout(speakTimer.fallback); } // leave any previous frozen
+    if (!span) { speakTimer = null; return; }
+    span.hidden = false;
+    span.classList.remove("done");
+    const render = () => { span.textContent = "⏱ " + ((performance.now() - t0) / 1000).toFixed(1) + "s"; };
     render();
-    replyTimer = {
-      t0, el,
-      interval: setInterval(render, 100),
-      // safety: if the reply's TTS never actually starts (e.g. silent failure)
-      // freeze anyway after 30s so it can't count up forever.
-      fallback: setTimeout(() => finishReplyTimer(), 30000)
-    };
+    speakTimer = { span, t0, interval: setInterval(render, 100), fallback: setTimeout(freezeSpeakTimer, 30000) };
   }
-  function finishReplyTimer(prefix) {
-    if (!replyTimer) return;
-    clearInterval(replyTimer.interval);
-    clearTimeout(replyTimer.fallback);
-    const secs = ((performance.now() - replyTimer.t0) / 1000).toFixed(1);
-    replyTimer.el.textContent = "⏱ " + (prefix || "") + secs + " שנ׳";
-    replyTimer.el.classList.add("done");
-    replyTimer = null; // stays visible until the next send replaces it
+  function freezeSpeakTimer() {
+    if (!speakTimer) return;
+    clearInterval(speakTimer.interval);
+    clearTimeout(speakTimer.fallback);
+    speakTimer.span.textContent = "⏱ " + ((performance.now() - speakTimer.t0) / 1000).toFixed(1) + "s";
+    speakTimer.span.classList.add("done");
+    speakTimer = null;
   }
-  function cancelReplyTimer() {
-    if (!replyTimer) return;
-    clearInterval(replyTimer.interval);
-    clearTimeout(replyTimer.fallback);
-    replyTimer.el.hidden = true;
-    replyTimer = null;
+  // sf:speakStart fires the instant audio actually begins — freeze the timer.
+  document.addEventListener("sf:speakStart", freezeSpeakTimer);
+
+  // Speak a message's text and time it in that message's own ⏱ label.
+  // startTime lets the first reply be timed from when it was sent, not now.
+  function speakMessage(row, startTime) {
+    const span = row.querySelector(".speak-timer");
+    runSpeakTimer(span, typeof startTime === "number" ? startTime : performance.now());
+    speech.speak(row._text, settings.rate);
   }
-  // The reply's TTS firing "onstart" is the moment Sky begins reading — stop
-  // the stopwatch there. (Other speak() calls when no timer is running no-op.)
-  document.addEventListener("sf:speakStart", () => finishReplyTimer());
 
   // ================= Sentence translation & saving =================
   async function translateMessage(bubble, text, btn) {
@@ -552,8 +544,8 @@
       api.cancelPending();
     });
 
+    const sendStart = performance.now(); // for the reply's ⏱ (send → read aloud)
     const typing = addTypingIndicator();
-    startReplyTimer();
     let stream = null;
     try {
       const result = await api.sendMessage(text, (partial) => {
@@ -566,7 +558,6 @@
 
       if (cancelToken.cancelled) {
         // the reply beat the cancel click (e.g. demo mode) — discard it
-        cancelReplyTimer();
         api.undoLastExchange();
         row.remove();
         if (stream) stream.row.remove();
@@ -576,17 +567,21 @@
 
       insights.trackUtterance(text);
       updateStreakBadge();
-      if (stream) stream.finalize(result.reply);
-      else addMessage("bot", result.reply); // demo mode / no streaming
+      let botRow;
+      if (stream) { stream.finalize(result.reply); botRow = stream.row; }
+      else botRow = addMessage("bot", result.reply); // demo mode / no streaming
       insights.applyInsights(result.insights);
-      if (settings.tts) speech.speak(result.reply, settings.rate);
-      // If TTS is off there's no "reading aloud" — stop the stopwatch now, at
-      // the moment the reply is shown. Otherwise sf:speakStart stops it.
-      else finishReplyTimer();
+      if (settings.tts) {
+        // time the reply's ⏱ label from send until it actually reads aloud
+        speakMessage(botRow, sendStart);
+      } else {
+        // no reading aloud — just show the send → reply-shown time and freeze
+        runSpeakTimer(botRow.querySelector(".speak-timer"), sendStart);
+        freezeSpeakTimer();
+      }
     } catch (err) {
       cancelBar.remove();
       typing.remove();
-      cancelReplyTimer();
       if (stream) stream.row.remove();
       if (cancelToken.cancelled || err.aborted) {
         row.remove();
