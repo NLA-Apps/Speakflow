@@ -1424,23 +1424,21 @@ body[data-view="progress"] .progress-panel { display: flex; }
 
 /* ================= Desktop (≥901px) ================= */
 @media (min-width: 901px) {
-  /* chat + insights + feedback, three columns side by side */
+  /* chat + insights; personal feedback appears inline in the chat flow */
+  .app-main {
+    width: min(100%, 1160px);
+    margin-inline: auto;
+    border-inline: 1px solid var(--border);
+  }
+
   body[data-view="chat"] .app-main,
-  body[data-view="insights"] .app-main { grid-template-columns: 1fr 300px 290px; }
+  body[data-view="insights"] .app-main { grid-template-columns: minmax(0, 850px) 290px; }
 
   .scenario-arrow { display: flex; }
 
   body[data-view="chat"] .insights-panel,
-  body[data-view="insights"] .insights-panel,
-  body[data-view="chat"] .feedback-panel,
-  body[data-view="insights"] .feedback-panel { display: flex; }
+  body[data-view="insights"] .insights-panel { display: flex; }
   body[data-view="insights"] .chat-panel { display: flex; }
-
-  .feedback-panel { order: 1; }
-  .insights-panel { order: 2; }
-
-  /* the inline chat feedback is mobile-only — the side panel handles desktop */
-  .chat-feedback { display: none; }
 
   .chat-panel { border-left: 1px solid var(--border); }
   .msg { max-width: 72%; }

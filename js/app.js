@@ -243,8 +243,7 @@
   }
 
   /* Inline feedback card shown in the chat flow after a reply — surfaces the
-     gentle corrections + tip right where the learner is looking. CSS shows it
-     only on mobile; on desktop the side "משוב אישי" panel handles this. */
+     gentle corrections + tip right where the learner is looking. */
   function renderChatFeedback(insights) {
     if (!insights) return;
     const corrections = insights.corrections || [];
