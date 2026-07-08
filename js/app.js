@@ -348,9 +348,9 @@
 
   // ---- Reply stopwatch: live-counts the seconds from send until Sky actually
   // starts reading the reply aloud (or until the reply is shown, if TTS is off).
+  // The final time stays on screen until the next message, so it's never missed.
   let replyTimer = null;
-  function startReplyTimer() {
-    cancelReplyTimer();
+  function getReplyTimerEl() {
     let el = $("replyTimer");
     if (!el) {
       el = document.createElement("div");
@@ -358,27 +358,38 @@
       el.className = "reply-timer";
       document.body.appendChild(el);
     }
+    return el;
+  }
+  function startReplyTimer() {
+    if (replyTimer) { clearInterval(replyTimer.interval); clearTimeout(replyTimer.fallback); }
+    const el = getReplyTimerEl();
     el.classList.remove("done");
     el.hidden = false;
     const t0 = performance.now();
     const render = () => { el.textContent = "⏱ " + ((performance.now() - t0) / 1000).toFixed(1) + " שנ׳"; };
     render();
-    replyTimer = { t0, el, interval: setInterval(render, 100) };
+    replyTimer = {
+      t0, el,
+      interval: setInterval(render, 100),
+      // safety: if the reply's TTS never actually starts (e.g. silent failure)
+      // freeze anyway after 30s so it can't count up forever.
+      fallback: setTimeout(() => finishReplyTimer(), 30000)
+    };
   }
   function finishReplyTimer(prefix) {
     if (!replyTimer) return;
     clearInterval(replyTimer.interval);
+    clearTimeout(replyTimer.fallback);
     const secs = ((performance.now() - replyTimer.t0) / 1000).toFixed(1);
-    const el = replyTimer.el;
-    el.textContent = "⏱ " + (prefix || "") + secs + " שנ׳";
-    el.classList.add("done");
-    replyTimer = null;
-    setTimeout(() => { if (el) el.hidden = true; }, 4000);
+    replyTimer.el.textContent = "⏱ " + (prefix || "") + secs + " שנ׳";
+    replyTimer.el.classList.add("done");
+    replyTimer = null; // stays visible until the next send replaces it
   }
   function cancelReplyTimer() {
     if (!replyTimer) return;
     clearInterval(replyTimer.interval);
-    if (replyTimer.el) replyTimer.el.hidden = true;
+    clearTimeout(replyTimer.fallback);
+    replyTimer.el.hidden = true;
     replyTimer = null;
   }
   // The reply's TTS firing "onstart" is the moment Sky begins reading — stop
