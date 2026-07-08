@@ -366,6 +366,7 @@ window.SF_SPEECH = (function () {
     speechSynthesis.speak(u);
   }
   document.addEventListener("pointerdown", primeAudio, { capture: true });
+  document.addEventListener("touchstart", primeAudio, { capture: true, passive: true });
 
   function speak(text, rate, attempt) {
     if (!text) return;
@@ -409,7 +410,7 @@ window.SF_SPEECH = (function () {
   }
 
   function stopSpeaking() {
-    if ("speechSynthesis" in window) speechSynthesis.cancel();
+    if ("speechSynthesis" in window && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel();
     if (ttsAudio && !ttsAudio.paused) { try { ttsAudio.pause(); } catch { /* noop */ } }
   }
 
@@ -422,6 +423,7 @@ window.SF_SPEECH = (function () {
     toggle,
     speak,
     stopSpeaking,
+    primeAudio,
     recognizeOnce,
     getEnglishVoices,
     getCuratedVoices,

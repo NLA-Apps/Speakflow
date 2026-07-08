@@ -752,7 +752,12 @@
   });
 
   document.querySelectorAll(".suggestion-chip").forEach((chip) => {
-    chip.addEventListener("click", () => handleUserMessage(chip.dataset.text));
+    chip.addEventListener("pointerdown", () => speech.primeAudio?.(), { passive: true });
+    chip.addEventListener("touchstart", () => speech.primeAudio?.(), { passive: true });
+    chip.addEventListener("click", () => {
+      speech.primeAudio?.();
+      handleUserMessage(chip.dataset.text);
+    });
   });
 
   // ================= TTS toggle =================
