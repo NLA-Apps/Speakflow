@@ -234,6 +234,45 @@ body[data-view="chat"] .chat-panel { display: flex; }
 }
 body[data-view="insights"] .insights-panel { display: flex; }
 
+/* Feedback panel (desktop 3rd column: gentle corrections + personal tip) */
+.feedback-panel {
+  overflow-y: auto;
+  padding: 18px 16px 32px;
+  background: var(--bg-soft);
+  flex-direction: column; gap: 13px;
+}
+.feedback-empty {
+  text-align: center;
+  color: var(--text-faint);
+  padding: 24px 12px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.feedback-empty[hidden] { display: none; }
+.feedback-empty-icon { font-size: 32px; margin-bottom: 8px; }
+
+/* Inline feedback card in the chat flow (mobile) */
+.chat-feedback {
+  align-self: stretch;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-right: 3px solid var(--amber);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin: 2px 0 4px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.chat-feedback .cf-label { font-size: 12.5px; font-weight: 700; color: var(--text-dim); }
+.chat-feedback .cf-corrections { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.chat-feedback .cf-corrections li { font-size: 13px; }
+.chat-feedback .cf-pair { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; direction: ltr; }
+.chat-feedback .cf-tip {
+  display: flex; flex-direction: column; gap: 2px;
+  font-size: 13px; color: var(--text);
+  border-top: 1px dashed var(--border); padding-top: 8px;
+}
+.chat-feedback .cf-tip-label { font-weight: 700; color: var(--amber); font-size: 12.5px; }
+
 /* Practice / Progress */
 .practice-panel, .progress-panel {
   overflow-y: auto;
@@ -1385,15 +1424,20 @@ body[data-view="progress"] .progress-panel { display: flex; }
 
 /* ================= Desktop (≥901px) ================= */
 @media (min-width: 901px) {
-  /* chat + insights side by side */
+  /* chat + insights + feedback, three columns side by side */
   body[data-view="chat"] .app-main,
-  body[data-view="insights"] .app-main { grid-template-columns: 1fr 370px; }
+  body[data-view="insights"] .app-main { grid-template-columns: 1fr 300px 290px; }
 
   .scenario-arrow { display: flex; }
 
   body[data-view="chat"] .insights-panel,
-  body[data-view="insights"] .insights-panel { display: flex; }
+  body[data-view="insights"] .insights-panel,
+  body[data-view="chat"] .feedback-panel,
+  body[data-view="insights"] .feedback-panel { display: flex; }
   body[data-view="insights"] .chat-panel { display: flex; }
+
+  /* the inline chat feedback is mobile-only — the side panel handles desktop */
+  .chat-feedback { display: none; }
 
   .chat-panel { border-left: 1px solid var(--border); }
   .msg { max-width: 72%; }

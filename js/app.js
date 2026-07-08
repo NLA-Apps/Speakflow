@@ -242,6 +242,37 @@
     };
   }
 
+  /* Inline feedback card shown in the chat flow after a reply — surfaces the
+     gentle corrections + tip right where the learner is looking. CSS shows it
+     only on mobile; on desktop the side "משוב אישי" panel handles this. */
+  function renderChatFeedback(insights) {
+    if (!insights) return;
+    const corrections = insights.corrections || [];
+    const tip = (insights.tip_he || "").trim();
+    if (!corrections.length && !tip) return;
+
+    const card = document.createElement("div");
+    card.className = "chat-feedback";
+    let html = "";
+    if (corrections.length) {
+      html += '<div class="cf-label">📝 תיקונים עדינים</div><ul class="cf-corrections">';
+      for (const c of corrections) {
+        const orig = document.createElement("span"); orig.textContent = c.original || "";
+        const fixed = document.createElement("span"); fixed.textContent = c.corrected || "";
+        const expl = document.createElement("span"); expl.textContent = c.explanation_he || "";
+        html += `<li><div class="cf-pair"><span class="corr-orig">${orig.innerHTML}</span><span class="corr-arrow">→</span><span class="corr-fixed">${fixed.innerHTML}</span></div><div class="corr-expl">${expl.innerHTML}</div></li>`;
+      }
+      html += "</ul>";
+    }
+    if (tip) {
+      const t = document.createElement("span"); t.textContent = tip;
+      html += `<div class="cf-tip"><span class="cf-tip-label">💡 טיפ בשבילך</span><span>${t.innerHTML}</span></div>`;
+    }
+    card.innerHTML = html;
+    chatMessages.appendChild(card);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
   /* Removes every message row that comes after `row` (used when an earlier
      message is edited — everything that followed it is now stale). */
   function removeMessagesAfter(row) {
@@ -319,6 +350,7 @@
         typing.remove();
         const botRow = addMessage("bot", result.reply);
         insights.applyInsights(result.insights);
+        renderChatFeedback(result.insights);
         if (settings.tts) speakMessage(botRow, sendStart);
         showToast("ההודעה עודכנה ✏️");
       } catch (err) {
@@ -571,6 +603,7 @@
       if (stream) { stream.finalize(result.reply); botRow = stream.row; }
       else botRow = addMessage("bot", result.reply); // demo mode / no streaming
       insights.applyInsights(result.insights);
+      renderChatFeedback(result.insights);
       if (settings.tts) {
         // time the reply's ⏱ label from send until it actually reads aloud
         speakMessage(botRow, sendStart);

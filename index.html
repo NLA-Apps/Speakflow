@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=53">
+  <link rel="stylesheet" href="css/style.css?v=54">
 </head>
 <body data-view="chat">
 
@@ -201,6 +201,17 @@
         <ul class="word-list" id="newWordsList"></ul>
       </div>
 
+    </aside>
+
+    <!-- ========== FEEDBACK VIEW (desktop: 3rd column; corrections + tips) ========== -->
+    <aside class="view feedback-panel" id="view-feedback">
+      <h2 class="insights-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+        </svg>
+        משוב אישי
+      </h2>
+
       <div class="insight-card" id="correctionsCard" hidden>
         <div class="card-label">📝 תיקונים עדינים</div>
         <ul class="corrections-list" id="correctionsList"></ul>
@@ -209,6 +220,11 @@
       <div class="insight-card tip-card" id="tipCard" hidden>
         <div class="card-label">💡 טיפ בשבילך</div>
         <p id="tipText"></p>
+      </div>
+
+      <div class="feedback-empty" id="feedbackEmpty">
+        <div class="feedback-empty-icon">✍️</div>
+        <p>התיקונים העדינים והטיפים האישיים שלך יופיעו כאן אחרי שתדבר עם סקיי.</p>
       </div>
     </aside>
 
@@ -343,7 +359,7 @@
       <button data-view="practice"><span class="nav-icon">🎯</span>תרגול<span class="due-badge" id="dueBadgeMobile" hidden></span></button>
       <button data-view="progress"><span class="nav-icon">📈</span>התקדמות</button>
     </nav>
-    <div class="app-footer">© NLA-Apps · v53</div>
+    <div class="app-footer">© NLA-Apps · v54</div>
   </div>
 
   <!-- ===== Word tooltip (small bubble anchored right above the tapped word) ===== -->
@@ -549,15 +565,15 @@
 
   <div class="toast" id="toast" hidden></div>
 
-  <script src="js/config.js?v=53"></script>
-  <script src="js/logger.js?v=53"></script>
-  <script src="js/storage.js?v=53"></script>
-  <script src="js/translate.js?v=53"></script>
-  <script src="js/srs.js?v=53"></script>
-  <script src="js/progress.js?v=53"></script>
-  <script src="js/insights.js?v=53"></script>
-  <script src="js/speech.js?v=53"></script>
-  <script src="js/api.js?v=53"></script>
-  <script src="js/app.js?v=53"></script>
+  <script src="js/config.js?v=54"></script>
+  <script src="js/logger.js?v=54"></script>
+  <script src="js/storage.js?v=54"></script>
+  <script src="js/translate.js?v=54"></script>
+  <script src="js/srs.js?v=54"></script>
+  <script src="js/progress.js?v=54"></script>
+  <script src="js/insights.js?v=54"></script>
+  <script src="js/speech.js?v=54"></script>
+  <script src="js/api.js?v=54"></script>
+  <script src="js/app.js?v=54"></script>
 </body>
 </html>

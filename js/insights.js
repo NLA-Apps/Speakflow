@@ -110,8 +110,14 @@ window.SF_INSIGHTS = (function () {
     document.dispatchEvent(new CustomEvent("sf:deckChanged"));
   }
 
+  function hideFeedbackEmpty() {
+    const empty = el("feedbackEmpty");
+    if (empty) empty.hidden = true;
+  }
+
   function renderCorrections(corrections) {
     if (!corrections || corrections.length === 0) return;
+    hideFeedbackEmpty();
     const card = el("correctionsCard");
     const list = el("correctionsList");
     card.hidden = false;
@@ -133,6 +139,7 @@ window.SF_INSIGHTS = (function () {
 
   function renderTip(tip) {
     if (!tip) return;
+    hideFeedbackEmpty();
     el("tipCard").hidden = false;
     el("tipText").textContent = tip;
   }
