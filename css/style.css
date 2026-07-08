@@ -1334,6 +1334,27 @@ body[data-view="progress"] .progress-panel { display: flex; }
 }
 .phone-sim-close { flex-shrink: 0; }
 
+/* ================= Reply stopwatch ================= */
+.reply-timer {
+  position: fixed;
+  top: calc(var(--header-h) + 8px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 150;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+}
+.reply-timer[hidden] { display: none; }
+.reply-timer.done { color: var(--green); border-color: rgba(52, 211, 153, 0.5); }
+
 /* ================= Toast ================= */
 .toast {
   position: fixed;

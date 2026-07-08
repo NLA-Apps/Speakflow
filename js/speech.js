@@ -185,6 +185,7 @@ window.SF_SPEECH = (function () {
         if (currentClipUrl) URL.revokeObjectURL(currentClipUrl);
         currentClipUrl = URL.createObjectURL(blob);
         a.src = currentClipUrl;
+        a.addEventListener("playing", () => document.dispatchEvent(new CustomEvent("sf:speakStart")), { once: true });
         return a.play();
       })
       .catch((err) => {
@@ -400,6 +401,7 @@ window.SF_SPEECH = (function () {
     if (v) u.voice = v;
     u.rate = rate || 0.9;
     u.pitch = 1.0;
+    u.onstart = () => document.dispatchEvent(new CustomEvent("sf:speakStart"));
     speechSynthesis.speak(u);
   }
 

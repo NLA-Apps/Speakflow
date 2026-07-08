@@ -346,6 +346,45 @@
     return row;
   }
 
+  // ---- Reply stopwatch: live-counts the seconds from send until Sky actually
+  // starts reading the reply aloud (or until the reply is shown, if TTS is off).
+  let replyTimer = null;
+  function startReplyTimer() {
+    cancelReplyTimer();
+    let el = $("replyTimer");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "replyTimer";
+      el.className = "reply-timer";
+      document.body.appendChild(el);
+    }
+    el.classList.remove("done");
+    el.hidden = false;
+    const t0 = performance.now();
+    const render = () => { el.textContent = "⏱ " + ((performance.now() - t0) / 1000).toFixed(1) + " שנ׳"; };
+    render();
+    replyTimer = { t0, el, interval: setInterval(render, 100) };
+  }
+  function finishReplyTimer(prefix) {
+    if (!replyTimer) return;
+    clearInterval(replyTimer.interval);
+    const secs = ((performance.now() - replyTimer.t0) / 1000).toFixed(1);
+    const el = replyTimer.el;
+    el.textContent = "⏱ " + (prefix || "") + secs + " שנ׳";
+    el.classList.add("done");
+    replyTimer = null;
+    setTimeout(() => { if (el) el.hidden = true; }, 4000);
+  }
+  function cancelReplyTimer() {
+    if (!replyTimer) return;
+    clearInterval(replyTimer.interval);
+    if (replyTimer.el) replyTimer.el.hidden = true;
+    replyTimer = null;
+  }
+  // The reply's TTS firing "onstart" is the moment Sky begins reading — stop
+  // the stopwatch there. (Other speak() calls when no timer is running no-op.)
+  document.addEventListener("sf:speakStart", () => finishReplyTimer());
+
   // ================= Sentence translation & saving =================
   async function translateMessage(bubble, text, btn) {
     const existing = bubble.querySelector(".msg-translation");
@@ -503,6 +542,7 @@
     });
 
     const typing = addTypingIndicator();
+    startReplyTimer();
     let stream = null;
     try {
       const result = await api.sendMessage(text, (partial) => {
@@ -515,6 +555,7 @@
 
       if (cancelToken.cancelled) {
         // the reply beat the cancel click (e.g. demo mode) — discard it
+        cancelReplyTimer();
         api.undoLastExchange();
         row.remove();
         if (stream) stream.row.remove();
@@ -528,9 +569,13 @@
       else addMessage("bot", result.reply); // demo mode / no streaming
       insights.applyInsights(result.insights);
       if (settings.tts) speech.speak(result.reply, settings.rate);
+      // If TTS is off there's no "reading aloud" — stop the stopwatch now, at
+      // the moment the reply is shown. Otherwise sf:speakStart stops it.
+      else finishReplyTimer();
     } catch (err) {
       cancelBar.remove();
       typing.remove();
+      cancelReplyTimer();
       if (stream) stream.row.remove();
       if (cancelToken.cancelled || err.aborted) {
         row.remove();
