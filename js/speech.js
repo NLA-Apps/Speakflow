@@ -137,11 +137,11 @@ window.SF_SPEECH = (function () {
   let ttsProxyUrl = "";
   function setTtsProxy(url) { ttsProxyUrl = (url || "").trim().replace(/\/+$/, ""); }
   function hasOpenAITts() { return Boolean(ttsProxyUrl); }
-  // gpt-4o-mini-tts is OpenAI's most natural TTS model (far better than tts-1)
-  // and accepts a tone "instructions" string. Note: ChatGPT's Advanced-Voice
-  // voices (Spruce/Maple/…) are NOT available via the API — these are the ones
-  // the API exposes; the fuller/newer set sounds more human than the originals.
-  const OPENAI_MODEL = "gpt-4o-mini-tts";
+  // tts-1 is OpenAI's LOW-LATENCY model (~1-2s) — gpt-4o-mini-tts sounds a bit
+  // richer but takes ~6-8s per reply, which is far too slow for conversation.
+  // Same voices (nova/echo), just a much faster engine. (tts-1 doesn't accept
+  // the "instructions" tone string, so we don't send it for tts-1.)
+  const OPENAI_MODEL = "tts-1";
   const OPENAI_INSTRUCTIONS = "Speak in a warm, natural, friendly young-adult voice — like a real person having a relaxed conversation, not a narrator reading text. Clear and expressive, never robotic.";
   const OPENAI_VOICES = [
     { id: "nova", he: "קול נשי" },
@@ -172,10 +172,13 @@ window.SF_SPEECH = (function () {
     if (!ttsProxyUrl || !text) return;
     stopSpeaking();
     const a = ensureAudio();
+    const reqBody = { input: text, voice: voiceId, model: OPENAI_MODEL, speed: rate || 1 };
+    // "instructions" is only supported by the gpt-4o-*-tts models, not tts-1.
+    if (OPENAI_MODEL.indexOf("gpt-4o") === 0) reqBody.instructions = OPENAI_INSTRUCTIONS;
     fetch(ttsProxyUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: text, voice: voiceId, model: OPENAI_MODEL, instructions: OPENAI_INSTRUCTIONS, speed: rate || 1 })
+      body: JSON.stringify(reqBody)
     })
       .then((r) => {
         if (!r.ok) return r.text().then((t) => { throw new Error("TTS " + r.status + ": " + t.slice(0, 120)); });
