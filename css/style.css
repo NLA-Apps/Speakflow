@@ -1476,9 +1476,12 @@ body[data-view="progress"] .progress-panel { display: flex; }
      ::after so that even if iOS paints a sliver of physical screen below a
      fixed;bottom:0 box in standalone mode, that sliver is covered by the
      dock's own solid color instead of showing the page's bluish gradient.
-     chat-panel reserves --dock-total-h (JS-measured) so content isn't
-     hidden behind the fixed dock. */
-  .chat-panel { padding-bottom: var(--dock-total-h, 150px); }
+     app-main gives up real layout height equal to --dock-total-h (JS-measured)
+     so every view's own box ends exactly at the dock's top border. */
+  .app-main {
+    margin-bottom: var(--dock-total-h, 150px);
+    padding-bottom: 0;
+  }
   .bottom-dock {
     position: fixed;
     left: 0;
