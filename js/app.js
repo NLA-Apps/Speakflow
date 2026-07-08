@@ -564,6 +564,7 @@
   async function handleUserMessage(text) {
     text = (text || "").trim();
     if (!text || busy) return;
+    closeReplyHelp();
     busy = true;
 
     const historyIndexForThisMsg = api.getHistory().length;
@@ -748,6 +749,88 @@
   $("sendBtn").addEventListener("click", sendFromInput);
   textInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") sendFromInput();
+  });
+
+  // ================= Reply helper =================
+  const replyHelpBtn = $("replyHelpBtn");
+  const replyHelpMenu = $("replyHelpMenu");
+  const replyHelpOptions = $("replyHelpOptions");
+  const replyHelpSuggestions = [
+    "Can you explain that in a simpler way?",
+    "I think so, but I'm not sure how to say it.",
+    "That's interesting. Tell me more."
+  ];
+
+  function renderReplyHelpOptions() {
+    replyHelpOptions.innerHTML = "";
+    replyHelpSuggestions.forEach((text) => {
+      const item = document.createElement("div");
+      item.className = "reply-help-item";
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "reply-help-option";
+      btn.textContent = text;
+      btn.addEventListener("click", () => {
+        closeReplyHelp();
+        handleUserMessage(text);
+      });
+
+      const translateBtn = document.createElement("button");
+      translateBtn.type = "button";
+      translateBtn.className = "reply-help-translate";
+      translateBtn.textContent = "🌐";
+      translateBtn.title = "תרגם";
+      translateBtn.addEventListener("click", async () => {
+        let tr = item.querySelector(".reply-help-translation");
+        if (tr) { tr.remove(); return; }
+
+        translateBtn.disabled = true;
+        translateBtn.textContent = "...";
+        try {
+          const he = await translate.translate(text);
+          tr = document.createElement("div");
+          tr.className = "reply-help-translation";
+          tr.textContent = he;
+          item.appendChild(tr);
+        } catch (err) {
+          showToast(err.userMessage || "התרגום נכשל", true);
+        } finally {
+          translateBtn.disabled = false;
+          translateBtn.textContent = "🌐";
+        }
+      });
+
+      const row = document.createElement("div");
+      row.className = "reply-help-row";
+      row.append(btn, translateBtn);
+      item.appendChild(row);
+      replyHelpOptions.appendChild(item);
+    });
+  }
+
+  function closeReplyHelp() {
+    replyHelpMenu.hidden = true;
+    replyHelpBtn.classList.remove("active");
+  }
+
+  function toggleReplyHelp() {
+    if (replyHelpMenu.hidden) {
+      renderReplyHelpOptions();
+      replyHelpMenu.hidden = false;
+      replyHelpBtn.classList.add("active");
+    } else {
+      closeReplyHelp();
+    }
+  }
+
+  replyHelpBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleReplyHelp();
+  });
+  replyHelpMenu.addEventListener("click", (e) => e.stopPropagation());
+  document.addEventListener("click", (e) => {
+    if (!replyHelpMenu.hidden && !inputBarEl.contains(e.target)) closeReplyHelp();
   });
 
   document.querySelectorAll(".suggestion-chip").forEach((chip) => {
@@ -1653,6 +1736,7 @@
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
     if (!wordTooltip.hidden) closeWordTooltip();
+    else if (!replyHelpMenu.hidden) closeReplyHelp();
     else if (!dictationReview.hidden) hideDictationReview();
     else if (!modal.hidden) closeSettings();
     else if (!phoneSim.hidden) closePhoneSim();

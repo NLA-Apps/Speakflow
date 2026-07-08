@@ -625,6 +625,7 @@ body[data-view="progress"] .progress-panel { display: block; }
 /* ================= Input bar ================= */
 .input-bar {
   display: flex; align-items: center; gap: 10px;
+  position: relative;
   padding: 12px 16px;
   padding-bottom: calc(12px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border);
@@ -699,6 +700,94 @@ body[data-view="progress"] .progress-panel { display: block; }
 
 .speaker-toggle.active { color: var(--accent); border-color: var(--accent); }
 .speaker-toggle:not(.active) { opacity: 0.45; }
+.reply-help-toggle.active {
+  color: var(--amber);
+  border-color: rgba(251, 191, 36, 0.55);
+  background: var(--amber-soft);
+}
+
+.reply-help-menu {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(100% + 10px);
+  z-index: 110;
+  background: rgba(26, 35, 50, 0.98);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.reply-help-menu[hidden] { display: none; }
+.reply-help-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.reply-help-options {
+  display: grid;
+  gap: 8px;
+}
+.reply-help-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.reply-help-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.reply-help-option {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--font-en);
+  font-size: 13px;
+  line-height: 1.25;
+  padding: 8px 12px;
+  cursor: pointer;
+  direction: ltr;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+.reply-help-option:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+.reply-help-translate {
+  width: 38px;
+  min-height: 36px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.reply-help-translate:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.reply-help-translate:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+.reply-help-translation {
+  direction: rtl;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 12.5px;
+  line-height: 1.45;
+  padding: 0 44px 2px 8px;
+}
 
 /* ================= Insights ================= */
 .insights-title {
