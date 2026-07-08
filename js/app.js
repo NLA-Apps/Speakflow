@@ -578,13 +578,8 @@
 
     const sendStart = performance.now(); // for the reply's ⏱ (send → read aloud)
     const typing = addTypingIndicator();
-    let stream = null;
     try {
-      const result = await api.sendMessage(text, (partial) => {
-        // first delta: swap the typing dots for a live, growing bot bubble
-        if (!stream) { typing.remove(); stream = addStreamingBotMessage(); }
-        stream.update(partial);
-      });
+      const result = await api.sendMessage(text);
       cancelBar.remove();
       typing.remove();
 
@@ -592,16 +587,13 @@
         // the reply beat the cancel click (e.g. demo mode) — discard it
         api.undoLastExchange();
         row.remove();
-        if (stream) stream.row.remove();
         showToast("ההודעה בוטלה — לא נשלח כלום 👍");
         return;
       }
 
       insights.trackUtterance(text);
       updateStreakBadge();
-      let botRow;
-      if (stream) { stream.finalize(result.reply); botRow = stream.row; }
-      else botRow = addMessage("bot", result.reply); // demo mode / no streaming
+      const botRow = addMessage("bot", result.reply);
       insights.applyInsights(result.insights);
       renderChatFeedback(result.insights);
       if (settings.tts) {
@@ -615,7 +607,6 @@
     } catch (err) {
       cancelBar.remove();
       typing.remove();
-      if (stream) stream.row.remove();
       if (cancelToken.cancelled || err.aborted) {
         row.remove();
         showToast("ההודעה בוטלה — לא נשלח כלום 👍");
@@ -1525,7 +1516,8 @@
     $("ttsProxyInput").value = store.getTtsProxy();
     $("ttsToggle").checked = settings.tts;
     $("autoSendToggle").checked = Boolean(settings.autoSend);
-    $("webSearchToggle").checked = Boolean(settings.webSearch);
+    $("webSearchToggle").checked = true;
+    $("webSearchToggle").disabled = true;
     $("rateInput").value = settings.rate;
     $("rateValue").textContent = settings.rate;
     $("goalInput").value = settings.goal || cfg.DEFAULT_GOAL;
@@ -1568,7 +1560,7 @@
     speech.setTtsProxy(store.getTtsProxy());
     settings.tts = $("ttsToggle").checked;
     settings.autoSend = $("autoSendToggle").checked;
-    settings.webSearch = $("webSearchToggle").checked;
+    settings.webSearch = true;
     settings.rate = parseFloat($("rateInput").value);
     settings.goal = Math.max(10, parseInt($("goalInput").value, 10) || cfg.DEFAULT_GOAL);
     settings.voice = $("voiceSelect").value;

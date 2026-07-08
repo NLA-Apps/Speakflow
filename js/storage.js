@@ -35,7 +35,8 @@ window.SF_STORAGE = (function () {
     setTtsProxy: (u) => set(KEYS.TTS_PROXY, (u || "").trim().replace(/\/+$/, "")),
 
     getSettings: () => {
-      const settings = { tts: true, rate: 0.9, voice: "", goal: 30, autoSend: true, webSearch: false, ...get(KEYS.SETTINGS, {}) };
+      const settings = { tts: true, rate: 0.9, voice: "", goal: 30, autoSend: true, webSearch: true, ...get(KEYS.SETTINGS, {}) };
+      settings.webSearch = true;
       // One-time correction: early builds defaulted autoSend to false and could
       // have persisted that before the fast-send-with-cancel flow existed.
       // Force it on exactly once, then respect whatever the user chooses after.

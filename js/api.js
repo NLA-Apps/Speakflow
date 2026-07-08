@@ -138,7 +138,14 @@ window.SF_API = (function () {
   async function claudeReply(onDelta) {
     const controller = new AbortController();
     currentAbortController = controller;
-    const useSearch = Boolean(store.getSettings().webSearch);
+    const useSearch = true;
+    const currentDate = new Date().toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric"
+    });
+    const freshnessPrompt = `\n\nCURRENT DATE: ${currentDate}.\nFreshness rule: You have web_search available on every real API reply. For sports, fixtures, scores, standings, "last game", "last match", current/recent/latest/today/yesterday/tomorrow questions, prices, news, and any public fact that may have changed, you MUST use web_search before answering. Never answer those from memory or training data. If search results conflict with old memory, trust the search results and the current date.`;
 
     const requestBody = {
       model: cfg.MODEL,
@@ -147,7 +154,7 @@ window.SF_API = (function () {
       system: [
         {
           type: "text",
-          text: cfg.SYSTEM_PROMPT + currentScenario().prompt,
+          text: cfg.SYSTEM_PROMPT + freshnessPrompt + currentScenario().prompt,
           cache_control: { type: "ephemeral" }
         }
       ],
@@ -156,8 +163,8 @@ window.SF_API = (function () {
         format: { type: "json_schema", schema: cfg.OUTPUT_SCHEMA }
       }
     };
-    // Web search adds real latency on every turn, so it's opt-in — only send
-    // the tool when the learner has enabled current-events mode in settings.
+    // Always give Sky web search so answers can stay current for news,
+    // sports, prices, dates, and anything else that may have changed.
     if (useSearch) {
       requestBody.tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }];
     }

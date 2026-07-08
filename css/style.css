@@ -1436,6 +1436,9 @@ body[data-view="progress"] .progress-panel { display: flex; }
   body[data-view="insights"] .feedback-panel { display: flex; }
   body[data-view="insights"] .chat-panel { display: flex; }
 
+  .feedback-panel { order: 1; }
+  .insights-panel { order: 2; }
+
   /* the inline chat feedback is mobile-only — the side panel handles desktop */
   .chat-feedback { display: none; }
 
