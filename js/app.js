@@ -755,15 +755,24 @@
   const replyHelpBtn = $("replyHelpBtn");
   const replyHelpMenu = $("replyHelpMenu");
   const replyHelpOptions = $("replyHelpOptions");
-  const replyHelpSuggestions = [
-    "Can you explain that in a simpler way?",
-    "I think so, but I'm not sure how to say it.",
-    "That's interesting. Tell me more."
-  ];
+  let replyHelpRequestId = 0;
 
-  function renderReplyHelpOptions() {
+  function renderReplyHelpLoading() {
     replyHelpOptions.innerHTML = "";
-    replyHelpSuggestions.forEach((text) => {
+    const item = document.createElement("div");
+    item.className = "reply-help-item";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "reply-help-option";
+    btn.disabled = true;
+    btn.textContent = "Preparing ideas for this conversation...";
+    item.appendChild(btn);
+    replyHelpOptions.appendChild(item);
+  }
+
+  function renderReplyHelpOptions(suggestions) {
+    replyHelpOptions.innerHTML = "";
+    suggestions.slice(0, 3).forEach((text) => {
       const item = document.createElement("div");
       item.className = "reply-help-item";
 
@@ -810,15 +819,25 @@
   }
 
   function closeReplyHelp() {
+    replyHelpRequestId++;
     replyHelpMenu.hidden = true;
     replyHelpBtn.classList.remove("active");
   }
 
+  async function openReplyHelp() {
+    const requestId = ++replyHelpRequestId;
+    renderReplyHelpLoading();
+    replyHelpMenu.hidden = false;
+    replyHelpBtn.classList.add("active");
+
+    const suggestions = await api.generateReplySuggestions();
+    if (requestId !== replyHelpRequestId || replyHelpMenu.hidden) return;
+    renderReplyHelpOptions(suggestions);
+  }
+
   function toggleReplyHelp() {
     if (replyHelpMenu.hidden) {
-      renderReplyHelpOptions();
-      replyHelpMenu.hidden = false;
-      replyHelpBtn.classList.add("active");
+      openReplyHelp();
     } else {
       closeReplyHelp();
     }

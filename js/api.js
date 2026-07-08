@@ -272,6 +272,97 @@ window.SF_API = (function () {
     return e;
   }
 
+  function sanitizeSuggestions(items) {
+    const seen = new Set();
+    return (items || [])
+      .map((item) => String(item || "").trim())
+      .map((item) => item.replace(/^\s*(?:\d+[\).\s-]+|[-*]\s+)/, "").replace(/^["']|["']$/g, "").trim())
+      .filter((item) => item && /[A-Za-z]/.test(item) && item.length <= 120)
+      .filter((item) => {
+        const key = item.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 3);
+  }
+
+  function fallbackReplySuggestions() {
+    const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
+    const lastUser = [...history].reverse().find((m) => m.role === "user")?.content || "";
+
+    if (!lastAssistant && !lastUser) {
+      return [
+        "Hi Sky! How are you today?",
+        "I want to talk about my day.",
+        "Can you ask me an easy question?"
+      ];
+    }
+
+    if (/\?/.test(lastAssistant)) {
+      return [
+        "I think my answer is yes, but I need a moment to explain.",
+        "For me, it depends on the situation.",
+        "Can you give me an example first?"
+      ];
+    }
+
+    return [
+      "That makes sense. I want to add one more thing.",
+      "I agree, but I'm not sure how to explain it.",
+      "Can you tell me more about that?"
+    ];
+  }
+
+  async function generateReplySuggestions() {
+    if (isDemoMode()) return fallbackReplySuggestions();
+
+    const recent = history.slice(-8);
+    if (!recent.length) return fallbackReplySuggestions();
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const transcript = recent
+        .map((m) => `${m.role === "assistant" ? "Sky" : "Learner"}: ${m.content}`)
+        .join("\n");
+      const res = await fetch(cfg.API_URL, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": store.getApiKey(),
+          "anthropic-version": cfg.API_VERSION,
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+        body: JSON.stringify({
+          model: cfg.MODEL,
+          max_tokens: 220,
+          system: "You help a Hebrew-speaking English learner keep a live conversation going. Based on the transcript, generate exactly 3 natural English replies the learner could say next. They must fit Sky's latest message and current topic. Keep each reply short, spoken, A1-B1 friendly, and useful when the learner is stuck. Return only valid JSON: an array of 3 strings. No Hebrew, no explanations.",
+          messages: [{ role: "user", content: transcript }]
+        })
+      });
+      if (!res.ok) return fallbackReplySuggestions();
+      const data = await res.json();
+      const block = (data.content || []).find((b) => b.type === "text");
+      const raw = (block?.text || "").trim();
+      let parsed = [];
+      try {
+        const json = raw.match(/\[[\s\S]*\]/)?.[0] || raw;
+        parsed = JSON.parse(json);
+      } catch {
+        parsed = raw.split(/\n+/);
+      }
+      const suggestions = sanitizeSuggestions(parsed);
+      return suggestions.length === 3 ? suggestions : sanitizeSuggestions([...suggestions, ...fallbackReplySuggestions()]);
+    } catch (err) {
+      log?.warn("Reply suggestions failed", { error: String(err) });
+      return fallbackReplySuggestions();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   // ---------- Demo mode ----------
   const demoScript = [
     "Nice to meet you! I'm Sky. What did you do today?",
@@ -362,6 +453,7 @@ window.SF_API = (function () {
     resetConversation,
     setScenario,
     getHistory,
+    generateReplySuggestions,
     getPronunciationTip,
     currentScenarioId: () => scenarioId
   };
