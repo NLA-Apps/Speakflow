@@ -394,7 +394,8 @@ window.SF_API = (function () {
         new_words: [],
         tip_he: demoIndex === 2
           ? "זהו מצב דמו — התובנות האמיתיות (תיקונים, מילים חדשות והערכת רמה מדויקת) יופיעו אחרי חיבור מפתח API."
-          : ""
+          : "",
+        score: 90 + Math.min(9, wordCount) // playful demo score
       },
       demo: true
     };

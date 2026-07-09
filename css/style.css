@@ -482,6 +482,25 @@ body[data-view="progress"] .progress-panel { display: block; }
 .msg.bot .tap-word:hover, .msg.bot .tap-word.active { background: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-soft); }
 .msg.user .tap-word:hover, .msg.user .tap-word.active { background: rgba(255,255,255,0.22); box-shadow: 0 0 0 3px rgba(255,255,255,0.22); }
 
+/* Karaoke: the word Sky is currently reading aloud — the word itself turns
+   blue (no background/box), highlighted in real time. Selectors are as specific
+   as the :hover/.active rules above and come later, so this wins even if the
+   pointer rests on the word (background/box-shadow reset to override them). */
+.msg.bot .tap-word.speaking-word {
+  background: transparent;
+  box-shadow: none;
+  color: var(--accent);
+  font-weight: 700;
+  transition: color 0.04s ease;
+}
+.msg.user .tap-word.speaking-word {
+  background: transparent;
+  box-shadow: none;
+  color: #fff;
+  font-weight: 700;
+  transition: color 0.04s ease;
+}
+
 /* In-bubble translation */
 .msg-translation {
   direction: rtl;
@@ -513,6 +532,20 @@ body[data-view="progress"] .progress-panel { display: block; }
 }
 .msg-actions button:hover { color: var(--text); border-color: var(--accent); }
 .msg-actions button.done { color: var(--green); border-color: rgba(52, 211, 153, 0.4); }
+
+/* Correctness score badge next to the learner's own message (🎯 0-100). */
+.utterance-score {
+  display: inline-flex; align-items: center;
+  font-size: 12px; font-weight: 700;
+  border-radius: 8px;
+  padding: 3px 9px;
+  border: 1px solid transparent;
+  cursor: default;
+  white-space: nowrap;
+}
+.utterance-score[data-tier="good"] { color: var(--green); background: var(--green-soft); border-color: rgba(52, 211, 153, 0.4); }
+.utterance-score[data-tier="ok"]   { color: var(--amber); background: var(--amber-soft); border-color: rgba(251, 191, 36, 0.4); }
+.utterance-score[data-tier="low"]  { color: var(--red);   background: rgba(248, 113, 113, 0.12); border-color: rgba(248, 113, 113, 0.4); }
 
 .msg.typing {
   display: flex; gap: 5px; align-items: center;

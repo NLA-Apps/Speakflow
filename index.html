@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=62">
+  <link rel="stylesheet" href="css/style.css?v=80">
 </head>
 <body data-view="chat">
 
@@ -364,7 +364,7 @@
       <button data-view="practice"><span class="nav-icon">🎯</span>תרגול<span class="due-badge" id="dueBadgeMobile" hidden></span></button>
       <button data-view="progress"><span class="nav-icon">📈</span>התקדמות</button>
     </nav>
-    <div class="app-footer">© NLA-Apps · v54</div>
+    <div class="app-footer">© NLA-Apps · v73</div>
   </div>
 
   <!-- ===== Word tooltip (small bubble anchored right above the tapped word) ===== -->
@@ -397,6 +397,7 @@
           <select id="voiceSelect" dir="ltr"></select>
           <span class="field-hint">בחר קול ולחץ <button type="button" class="link-btn" id="testVoiceBtn">🔊 בדיקת קול</button> כדי לשמוע אותו.</span>
           <span class="field-hint" id="voiceCountHint"></span>
+          <span class="field-hint" id="voiceDiag" style="opacity:0.75;font-size:0.85em;"></span>
         </label>
 
         <label class="field">
@@ -428,6 +429,14 @@
             <span>שליחה מהירה אחרי דיבור</span>
           </label>
           <span class="field-hint">ההודעה נשלחת מיד, אבל יש לך כמה שניות ללחוץ ✕ ולבטל לפני שסקיי רואה אותה. כבה כדי לקבל מסך אישור (שלח / ערוך / בטל) לפני כל שליחה.</span>
+        </div>
+
+        <div class="field">
+          <label class="checkbox-field">
+            <input type="checkbox" id="autoTranslateToggle">
+            <span>תרגום אוטומטי של תשובות סקיי</span>
+          </label>
+          <span class="field-hint">מציג את התרגום לעברית מתחת לכל תשובה של סקיי, אוטומטית. תמיד אפשר גם ללחוץ 🌐 ידנית.</span>
         </div>
 
         <div class="field">
@@ -570,15 +579,15 @@
 
   <div class="toast" id="toast" hidden></div>
 
-  <script src="js/config.js?v=62"></script>
-  <script src="js/logger.js?v=62"></script>
-  <script src="js/storage.js?v=62"></script>
-  <script src="js/translate.js?v=62"></script>
-  <script src="js/srs.js?v=62"></script>
-  <script src="js/progress.js?v=62"></script>
-  <script src="js/insights.js?v=62"></script>
-  <script src="js/speech.js?v=62"></script>
-  <script src="js/api.js?v=62"></script>
-  <script src="js/app.js?v=62"></script>
+  <script src="js/config.js?v=80"></script>
+  <script src="js/logger.js?v=80"></script>
+  <script src="js/storage.js?v=80"></script>
+  <script src="js/translate.js?v=80"></script>
+  <script src="js/srs.js?v=80"></script>
+  <script src="js/progress.js?v=80"></script>
+  <script src="js/insights.js?v=80"></script>
+  <script src="js/speech.js?v=80"></script>
+  <script src="js/api.js?v=80"></script>
+  <script src="js/app.js?v=80"></script>
 </body>
 </html>

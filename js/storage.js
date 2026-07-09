@@ -10,7 +10,7 @@ window.SF_STORAGE = (function () {
     SENTENCES: "sf_sentences",  // saved sentences [{text, translation, addedAt}]
     DAILY: "sf_daily",          // per-day stats {"2026-07-04": {words, newWords, level}}
     CHAT: "sf_chat",            // persisted conversation [{role, content}]
-    TRANS_CACHE: "sf_trans_cache", // translation cache {en: he}
+    TRANS_CACHE: "sf_trans_cache_v2", // translation cache {en: he} (v2: reset after fixing a prompt that let the model answer conversational text instead of translating it)
     AUTOSEND_MIGRATED: "sf_autosend_migrated_v1" // one-time flag, see getSettings()
   };
 
@@ -35,7 +35,7 @@ window.SF_STORAGE = (function () {
     setTtsProxy: (u) => set(KEYS.TTS_PROXY, (u || "").trim().replace(/\/+$/, "")),
 
     getSettings: () => {
-      const settings = { tts: true, rate: 0.9, voice: "", goal: 30, autoSend: true, webSearch: true, ...get(KEYS.SETTINGS, {}) };
+      const settings = { tts: true, rate: 0.9, voice: "", goal: 30, autoSend: true, autoTranslate: true, webSearch: true, ...get(KEYS.SETTINGS, {}) };
       settings.webSearch = true;
       // One-time correction: early builds defaulted autoSend to false and could
       // have persisted that before the fast-send-with-cancel flow existed.

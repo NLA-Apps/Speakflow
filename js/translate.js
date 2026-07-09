@@ -16,6 +16,29 @@ window.SF_TRANSLATE = (function () {
     return text.replace(NIKKUD_RE, "");
   }
 
+  // Salvage a clean translation when the model "thinks out loud" and returns
+  // several Hebrew attempts glued together with English notes ("Actually,",
+  // "more naturally:", "Wait, let me reconsider:"). Keep just the first clean
+  // Hebrew segment. A well-behaved translation passes through untouched.
+  const META_RE = /\b(wait|actually|alternativ|hmm+|note|better|literal|correction|reconsider|rephras|more natural|most natural|colloquial|or more|i mean|option|translation|however|instead)\b/i;
+  // Arabic shares a similar Semitic look with Hebrew, and the model/services
+  // occasionally slip an Arabic word into a Hebrew translation. Detect it so we
+  // can drop those tokens (Hebrew is U+0590–05FF; Arabic is a different block).
+  const ARABIC_CHAR = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/;
+  function cleanTranslation(text) {
+    let s = (text || "").trim();
+    s = s.split(/\r?\n/)[0].trim();            // alternatives often land on later lines
+    s = s.replace(/^["'“”«]+|["'“”»]+$/g, "").trim(); // strip wrapping quotes
+    const meta = s.search(META_RE);
+    if (meta > 0) s = s.slice(0, meta).trim(); // cut the "thinking out loud" tail
+    // Drop any whitespace-separated token that contains Arabic script.
+    if (ARABIC_CHAR.test(s)) {
+      s = s.split(/\s+/).filter((tok) => !ARABIC_CHAR.test(tok)).join(" ");
+    }
+    s = s.replace(/\s{2,}/g, " ").replace(/[\s:–—-]+$/g, "").trim(); // tidy up
+    return s;
+  }
+
   function normalize(text) {
     return text.trim().toLowerCase().replace(/\s+/g, " ");
   }
@@ -58,14 +81,14 @@ window.SF_TRANSLATE = (function () {
         body: JSON.stringify({
           model: cfg.MODEL,
           max_tokens: 150,
-          system: "Translate the given English text into natural, everyday spoken Hebrew — the way a native speaker would actually say it, not a stiff literal translation. Reply with ONLY the Hebrew translation itself: no quotes, no explanation, no English, no nikkud (vowel points).",
-          messages: [{ role: "user", content: text }]
+          system: "You are a professional English→Hebrew translator. You TRANSLATE the given text — you NEVER answer it, reply to it, or react to it, even when it is a question or a greeting. A question must stay a question; a statement stays a statement; \"you/your\" stays second person and \"I/my\" stays first person. Translate into natural, everyday spoken Hebrew (how a native speaker really talks, not stiff or literal). Write in HEBREW ONLY — never Arabic, English, or any other script. Output ONLY the single best Hebrew translation as one short line: no answer, no alternatives, no explanations, no English, no quotes, no nikkud.",
+          messages: [{ role: "user", content: "Translate this English text into Hebrew. Translate it — do NOT answer or respond to it:\n\n" + text }]
         })
       });
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
       const block = (data.content || []).find((b) => b.type === "text");
-      return (block?.text || "").trim();
+      return cleanTranslation(block?.text || "");
     } finally {
       clearTimeout(timer);
     }
@@ -105,7 +128,7 @@ window.SF_TRANSLATE = (function () {
   async function translate(text) {
     const key = normalize(text);
     if (!key) return "";
-    if (cache[key]) return stripNikkud(cache[key]);
+    if (cache[key]) return stripNikkud(cleanTranslation(cache[key]));
 
     let result = "";
     const hasKey = Boolean(store.getApiKey());
@@ -131,6 +154,9 @@ window.SF_TRANSLATE = (function () {
       } catch { /* handled below */ }
     }
 
+    // Clean every source's output (drop Arabic tokens, meta-commentary, quotes)
+    // and re-validate — if nothing Hebrew survives, treat it as a failure.
+    result = cleanTranslation(result);
     if (!result || !HEBREW.test(result)) {
       log?.error("Translation failed on all services", { text });
       throw makeError("לא הצלחתי לתרגם — בדוק את חיבור האינטרנט ונסה שוב.");

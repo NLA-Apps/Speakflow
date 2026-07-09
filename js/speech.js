@@ -168,9 +168,13 @@ window.SF_SPEECH = (function () {
   }
 
   let currentClipUrl = "";
-  function speakViaOpenAI(text, voiceId, rate) {
+  // Bumped on every stop/new clip so a superseded clip's async callbacks
+  // (progress loop, ended) become no-ops instead of driving the wrong message.
+  let ttsGen = 0;
+  function speakViaOpenAI(text, voiceId, rate, hooks) {
     if (!ttsProxyUrl || !text) return;
-    stopSpeaking();
+    stopSpeaking();          // invalidates any current clip (bumps ttsGen)
+    const gen = ttsGen;      // this clip's generation
     const a = ensureAudio();
     const reqBody = { input: text, voice: voiceId, model: OPENAI_MODEL, speed: rate || 1 };
     // "instructions" is only supported by the gpt-4o-*-tts models, not tts-1.
@@ -185,13 +189,32 @@ window.SF_SPEECH = (function () {
         return r.blob();
       })
       .then((blob) => {
+        if (gen !== ttsGen) return; // superseded while fetching
         if (currentClipUrl) URL.revokeObjectURL(currentClipUrl);
         currentClipUrl = URL.createObjectURL(blob);
         a.src = currentClipUrl;
-        a.addEventListener("playing", () => document.dispatchEvent(new CustomEvent("sf:speakStart")), { once: true });
+        a.addEventListener("playing", () => {
+          if (gen !== ttsGen) return;
+          document.dispatchEvent(new CustomEvent("sf:speakStart"));
+          if (hooks && hooks.onStart) hooks.onStart();
+          // tts-1 gives us no word timings, so drive a karaoke estimate from
+          // the audio's own playback fraction (rAF for smoothness).
+          const tick = () => {
+            if (gen !== ttsGen || a.paused || a.ended) return;
+            if (hooks && hooks.onProgress && a.duration) hooks.onProgress(a.currentTime / a.duration);
+            requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        }, { once: true });
+        a.addEventListener("ended", () => {
+          if (gen !== ttsGen) return;
+          if (hooks && hooks.onProgress) hooks.onProgress(1);
+          if (hooks && hooks.onEnd) hooks.onEnd();
+        }, { once: true });
         return a.play();
       })
       .catch((err) => {
+        if (hooks && hooks.onEnd) hooks.onEnd();
         document.dispatchEvent(new CustomEvent("sf:ttsError", { detail: String(err && err.message || err) }));
       });
   }
@@ -339,6 +362,29 @@ window.SF_SPEECH = (function () {
   /** Kept for callers that only need male options. */
   function getMaleVoiceOptions(max) { return getVoiceOptions("male", max || 6); }
 
+  // Only LOCAL (on-device) voices emit onboundary word-timing events; the newer
+  // Natural/online voices sound better but stay silent, which is why karaoke
+  // needs estimating with them. A local voice gives exact, word-perfect sync.
+  function supportsWordTiming(v) { return Boolean(v && v.localService === true); }
+
+  /** Local, word-timing-capable voices (best first, novelty voices excluded,
+   *  de-duped by name) — offered as the "precise karaoke" options. */
+  function getWordTimingVoices(max) {
+    max = max || 4;
+    const ranked = [...voices]
+      .filter((v) => supportsWordTiming(v) && !isBadVoice(v))
+      .sort((a, b) => voiceQualityScore(b) - voiceQualityScore(a));
+    const seen = new Set();
+    const out = [];
+    for (const v of ranked) {
+      const key = (v.name || "").toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(v);
+    }
+    return out.slice(0, max);
+  }
+
   function pickVoice() {
     // A voice saved in settings before the bad-voice blacklist existed could
     // still point at a novelty voice (e.g. Fred) — ignore such a saved
@@ -368,13 +414,13 @@ window.SF_SPEECH = (function () {
   document.addEventListener("pointerdown", primeAudio, { capture: true });
   document.addEventListener("touchstart", primeAudio, { capture: true, passive: true });
 
-  function speak(text, rate, attempt) {
+  function speak(text, rate, hooks, attempt) {
     if (!text) return;
 
     // If an OpenAI neural voice is selected and a proxy is configured, use it —
     // it sounds far more natural than the device's built-in voices.
     if (ttsProxyUrl && preferredVoiceName && preferredVoiceName.indexOf("openai:") === 0) {
-      speakViaOpenAI(text, preferredVoiceName.slice("openai:".length), rate);
+      speakViaOpenAI(text, preferredVoiceName.slice("openai:".length), rate, hooks);
       return;
     }
 
@@ -391,7 +437,7 @@ window.SF_SPEECH = (function () {
         if (done) return;
         done = true;
         document.removeEventListener("sf:voicesChanged", retry);
-        speak(text, rate, attempt + 1);
+        speak(text, rate, hooks, attempt + 1);
       };
       document.addEventListener("sf:voicesChanged", retry, { once: true });
       setTimeout(retry, 250);
@@ -405,11 +451,22 @@ window.SF_SPEECH = (function () {
     if (v) u.voice = v;
     u.rate = rate || 0.9;
     u.pitch = 1.0;
-    u.onstart = () => document.dispatchEvent(new CustomEvent("sf:speakStart"));
+    u.onstart = () => { document.dispatchEvent(new CustomEvent("sf:speakStart")); if (hooks && hooks.onStart) hooks.onStart(); };
+    // Karaoke: onboundary fires per word with the char index of the word being
+    // spoken. Only LOCAL voices emit it — most Natural/online voices don't, so
+    // the caller also runs a time-based fallback. Ignore non-word boundaries
+    // (e.g. sentence) so we don't get stuck highlighting the first word.
+    u.onboundary = (e) => {
+      if (e.name && e.name !== "word") return;
+      if (hooks && hooks.onBoundary) hooks.onBoundary(e.charIndex || 0, e.charLength || 0);
+    };
+    u.onend = () => { if (hooks && hooks.onEnd) hooks.onEnd(); };
+    u.onerror = () => { if (hooks && hooks.onEnd) hooks.onEnd(); };
     speechSynthesis.speak(u);
   }
 
   function stopSpeaking() {
+    ttsGen++; // invalidate any in-flight OpenAI clip's async callbacks
     if ("speechSynthesis" in window && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel();
     if (ttsAudio && !ttsAudio.paused) { try { ttsAudio.pause(); } catch { /* noop */ } }
   }
@@ -429,6 +486,8 @@ window.SF_SPEECH = (function () {
     getCuratedVoices,
     getMaleVoiceOptions,
     getVoiceOptions,
+    getWordTimingVoices,
+    supportsWordTiming,
     setPreferredVoice,
     setTtsProxy,
     hasOpenAITts,

@@ -67,6 +67,26 @@
 
   let settings = store.getSettings();
   let busy = false;
+  // Reference to the in-flight send's cancel token, so an edit started while
+  // Sky is still thinking can quietly supersede that request instead of being
+  // blocked. Null whenever nothing is in flight.
+  let inflightToken = null;
+
+  /* Resolves once no send is in flight (busy === false). Used by "edit &
+     resend" to wait for a superseded request to finish unwinding before it
+     starts a fresh turn. Bails after a safety timeout so it can never hang. */
+  function waitUntilIdle(timeoutMs = 6000) {
+    return new Promise((resolve) => {
+      if (!busy) return resolve();
+      const start = performance.now();
+      const iv = setInterval(() => {
+        if (!busy || performance.now() - start > timeoutMs) {
+          clearInterval(iv);
+          resolve();
+        }
+      }, 30);
+    });
+  }
 
   // ================= Views / navigation =================
   function setView(view) {
@@ -177,10 +197,25 @@
 
     actions.append(trBtn, saveBtn, speakBtn, speakTimer);
     row.appendChild(actions);
+    // stashed so auto-translate can reuse the exact same toggle button/bubble
+    row._trBtn = trBtn;
+    row._bubble = bubble;
 
     chatMessages.appendChild(row);
     chatMessages.scrollTop = chatMessages.scrollHeight;
     return row;
+  }
+
+  /* Auto-show the Hebrew translation under one of Sky's replies, when the
+     setting is on. Reuses translateMessage so the 🌐 button stays in sync
+     (a later manual tap will toggle it off/on as usual). */
+  function autoTranslateReply(row) {
+    if (!settings.autoTranslate || !row) return;
+    const bubble = row._bubble;
+    const btn = row._trBtn;
+    if (!bubble || !btn) return;
+    if (bubble.querySelector(".msg-translation")) return; // already shown
+    translateMessage(bubble, row._text, btn);
   }
 
   /* A bot bubble that fills in progressively as the reply streams. During the
@@ -242,6 +277,28 @@
     };
   }
 
+  /* Badge next to the learner's own message showing how correct/natural it was
+     (0-100, from the model's insights). Colored by tier so a glance tells them
+     how they did on that sentence. */
+  function showUtteranceScore(row, score) {
+    if (!row || typeof score !== "number" || isNaN(score)) return;
+    const actions = row.querySelector(".msg-actions");
+    if (!actions) return;
+    const s = Math.max(0, Math.min(100, Math.round(score)));
+    let pill = actions.querySelector(".utterance-score");
+    if (!pill) {
+      pill = document.createElement("span");
+      pill.className = "utterance-score";
+      actions.insertBefore(pill, actions.firstChild);
+    }
+    const tier = s >= 85 ? "good" : s >= 60 ? "ok" : "low";
+    pill.dataset.tier = tier;
+    pill.textContent = "🎯 " + s;
+    pill.title = tier === "good" ? "מצוין! ניסוח נכון וטבעי 🎉"
+      : tier === "ok" ? "טוב — יש מקום לשיפור קטן, הצץ בתיקונים"
+      : "יש כמה טעויות — הצץ בתיקונים כדי להשתפר";
+  }
+
   /* Inline feedback card shown in the chat flow after a reply — surfaces the
      gentle corrections + tip right where the learner is looking. */
   function renderChatFeedback(insights) {
@@ -286,7 +343,6 @@
   /* Turns a sent user bubble into an inline editor. Saving truncates the
      conversation from that point on and resends the corrected text. */
   function enterEditMode(row, bubble, textWrap) {
-    if (busy) { showToast("חכה לתשובה של סקיי לפני עריכה 🙂", true); return; }
     if (bubble.querySelector(".msg-edit-wrap")) return; // already editing
 
     const original = row._text;
@@ -333,7 +389,15 @@
       const newText = input.value.trim();
       if (!newText) { showToast("אי אפשר לשלוח הודעה ריקה", true); return; }
       if (newText === original) { exitEdit(); return; }
-      if (busy) return;
+
+      // If Sky is still thinking on an earlier request, quietly cancel it and
+      // wait for it to unwind, so this edit becomes the turn that gets answered.
+      if (busy) {
+        if (inflightToken) inflightToken.superseded = true;
+        api.cancelPending();
+        await waitUntilIdle();
+      }
+      if (busy) return; // safety — shouldn't happen after waitUntilIdle
       busy = true;
 
       exitEdit();
@@ -347,9 +411,11 @@
       try {
         const result = await api.editAndResend(row._historyIndex, newText);
         typing.remove();
+        showUtteranceScore(row, result.insights && result.insights.score);
         const botRow = addMessage("bot", result.reply);
         insights.applyInsights(result.insights);
         renderChatFeedback(result.insights);
+        autoTranslateReply(botRow);
         if (settings.tts) speakMessage(botRow, sendStart);
         showToast("ההודעה עודכנה ✏️");
       } catch (err) {
@@ -411,12 +477,137 @@
   // sf:speakStart fires the instant audio actually begins — freeze the timer.
   document.addEventListener("sf:speakStart", freezeSpeakTimer);
 
+  // ---- Karaoke: highlight each word as Sky reads it aloud ----
+  // `karaoke` holds the current message's tappable-word spans with their char
+  // offsets in the text. A token invalidates stale callbacks so an interrupted
+  // or superseded utterance can never highlight the wrong (or a new) message.
+  let karaoke = null;
+  let karaokeToken = 0;
+
+  function clearKaraoke() {
+    if (karaoke) for (const w of karaoke.words) w.span.classList.remove("speaking-word");
+    karaoke = null;
+  }
+
+  // Hard stop: also bumps the token so any in-flight speak callbacks go dead.
+  function stopKaraoke() { karaokeToken++; clearKaraoke(); }
+
+  // Map the message's .tap-word spans to their character ranges within row._text
+  // (the text nodes + spans concatenate back to the exact text), so a char index
+  // or playback fraction can pick out the word being spoken.
+  function buildKaraoke(row) {
+    const wrap = row.querySelector(".msg-text");
+    if (!wrap) return null;
+    const text = row._text || "";
+    const words = [];
+    let offset = 0;
+    for (const node of wrap.childNodes) {
+      const len = (node.textContent || "").length;
+      if (node.nodeType === 1 && node.classList && node.classList.contains("tap-word")) {
+        words.push({ span: node, start: offset, end: offset + len });
+      }
+      offset += len;
+    }
+    if (!words.length) return null;
+    // Weight each word by its syllable count plus a pause for trailing
+    // punctuation, so the time-based estimator follows the natural rhythm of
+    // speech (short words fly by, long words linger, a beat at commas/periods)
+    // instead of advancing at a flat rate per character.
+    let acc = 0;
+    for (let i = 0; i < words.length; i++) {
+      const w = words[i];
+      const wordText = text.slice(w.start, w.end);
+      const syllables = Math.max(1, (wordText.match(/[aeiouy]+/gi) || []).length);
+      const gap = text.slice(w.end, i + 1 < words.length ? words[i + 1].start : text.length);
+      const pause = /[.!?]/.test(gap) ? 3 : /[,;:]/.test(gap) ? 1.5 : 0;
+      w.wStart = acc;
+      acc += syllables + pause;
+      w.wEnd = acc;
+    }
+    return { words, totalWeight: acc || 1 };
+  }
+
+  // Highlight by exact character index (from a voice's real word-boundary event).
+  function highlightAtChar(charIndex) {
+    if (!karaoke) return;
+    let target = null;
+    for (const w of karaoke.words) {
+      if (charIndex < w.end) { target = w; break; } // first word not yet finished
+    }
+    if (!target) target = karaoke.words[karaoke.words.length - 1];
+    setSpeakingWord(target);
+  }
+
+  // Highlight by a 0..1 position along the syllable/pause-weighted timeline
+  // (used by the estimator and by OpenAI's real-audio playback fraction).
+  function highlightAtWeight(frac) {
+    if (!karaoke) return;
+    const pos = Math.max(0, Math.min(1, frac)) * karaoke.totalWeight;
+    let target = null;
+    for (const w of karaoke.words) {
+      if (pos < w.wEnd) { target = w; break; }
+    }
+    if (!target) target = karaoke.words[karaoke.words.length - 1];
+    setSpeakingWord(target);
+  }
+
+  function setSpeakingWord(target) {
+    for (const w of karaoke.words) w.span.classList.toggle("speaking-word", w === target);
+  }
+
   // Speak a message's text and time it in that message's own ⏱ label.
   // startTime lets the first reply be timed from when it was sent, not now.
   function speakMessage(row, startTime) {
     const span = row.querySelector(".speak-timer");
     runSpeakTimer(span, typeof startTime === "number" ? startTime : performance.now());
-    speech.speak(row._text, settings.rate);
+
+    stopKaraoke(); // clear any previous highlight and kill its callbacks
+    const myToken = karaokeToken;
+    const total = (row._text || "").length || 1;
+    karaoke = buildKaraoke(row); // set before speaking so the first cue can use it
+
+    // Most high-quality voices (Natural/online, and all OpenAI audio) give no
+    // per-word timing, so we run a time-based estimator anchored to when audio
+    // actually starts. If real cues arrive (a local voice's word boundaries or
+    // the OpenAI clip's playback fraction), they take over for exact sync.
+    const rate = settings.rate || 0.9;
+    const estMs = Math.max(650, (total * 60) / rate); // ~17 chars/sec at rate 1
+    // Voices start audio a beat after onstart, and a highlight reads best when
+    // it lands just as the word begins — so run the estimate a touch ahead
+    // instead of trailing the audio (small: too much reads as running ahead).
+    const LEAD_MS = 40;
+    let exact = false;
+    let estStart = 0;
+    const estimatorTick = () => {
+      if (myToken !== karaokeToken || exact || !estStart) return;
+      const frac = Math.min(1, (performance.now() - estStart + LEAD_MS) / estMs);
+      highlightAtWeight(frac);
+      if (frac < 1) requestAnimationFrame(estimatorTick);
+    };
+    const startEstimator = () => {
+      if (myToken !== karaokeToken || exact || estStart) return;
+      estStart = performance.now();
+      requestAnimationFrame(estimatorTick);
+    };
+    // Anchor the estimate to when audio actually starts (onStart below). This
+    // timer is only a safety net for voices that never fire onstart — kept long
+    // so a normal onstart wins and the estimate doesn't run ahead of real audio.
+    setTimeout(startEstimator, 900);
+
+    speech.speak(row._text, rate, {
+      onStart: startEstimator,
+      onBoundary: (charIndex) => {
+        if (myToken !== karaokeToken) return;
+        exact = true; // exact word boundaries — stop estimating
+        highlightAtChar(charIndex);
+      },
+      onProgress: (frac) => {
+        if (myToken !== karaokeToken) return;
+        exact = true; // real audio position — stop estimating
+        highlightAtWeight(frac);
+      },
+      onEnd: () => { if (myToken === karaokeToken) clearKaraoke(); }
+    });
   }
 
   // ================= Sentence translation & saving =================
@@ -570,7 +761,8 @@
     const historyIndexForThisMsg = api.getHistory().length;
     const row = addMessage("user", text, { historyIndex: historyIndexForThisMsg });
 
-    const cancelToken = { cancelled: false };
+    const cancelToken = { cancelled: false, superseded: false };
+    inflightToken = cancelToken;
     const cancelBar = addSendCancelBar(row, () => {
       cancelToken.cancelled = true;
       api.cancelPending();
@@ -583,6 +775,12 @@
       cancelBar.remove();
       typing.remove();
 
+      if (cancelToken.superseded) {
+        // an edit started mid-reply and is taking over this turn — drop this
+        // reply from history and leave the message row for the edit to resend
+        api.undoLastExchange();
+        return;
+      }
       if (cancelToken.cancelled) {
         // the reply beat the cancel click (e.g. demo mode) — discard it
         api.undoLastExchange();
@@ -593,9 +791,11 @@
 
       insights.trackUtterance(text);
       updateStreakBadge();
+      showUtteranceScore(row, result.insights && result.insights.score);
       const botRow = addMessage("bot", result.reply);
       insights.applyInsights(result.insights);
       renderChatFeedback(result.insights);
+      autoTranslateReply(botRow);
       if (settings.tts) {
         // time the reply's ⏱ label from send until it actually reads aloud
         speakMessage(botRow, sendStart);
@@ -607,6 +807,11 @@
     } catch (err) {
       cancelBar.remove();
       typing.remove();
+      if (cancelToken.superseded) {
+        // an edit aborted this request to take over — stay quiet and leave the
+        // row in place; the edit flow resends and re-renders from here
+        return;
+      }
       if (cancelToken.cancelled || err.aborted) {
         row.remove();
         showToast("ההודעה בוטלה — לא נשלח כלום 👍");
@@ -614,6 +819,7 @@
         showToast(err.userMessage || "משהו השתבש — נסה שוב.", true);
       }
     } finally {
+      if (inflightToken === cancelToken) inflightToken = null;
       busy = false;
     }
   }
@@ -655,8 +861,9 @@
     renderScenarioBar();
 
     if (sc.opener) {
-      addMessage("bot", sc.opener);
-      if (settings.tts) speech.speak(sc.opener, settings.rate);
+      const openerRow = addMessage("bot", sc.opener);
+      autoTranslateReply(openerRow);
+      if (settings.tts) speakMessage(openerRow);
       showToast(sc.emoji + " נכנסת לתרחיש: " + sc.name_he);
     } else {
       showToast("💬 שיחה חופשית — דבר על מה שבא לך");
@@ -737,6 +944,7 @@
       return;
     }
     hideDictationReview(); // a new recording replaces a pending review
+    stopKaraoke(); // stop any karaoke highlight when the mic takes over
     speech.toggle();
   });
 
@@ -869,7 +1077,7 @@
   speakerBtn.addEventListener("click", () => {
     settings.tts = !settings.tts;
     store.setSettings(settings);
-    if (!settings.tts) speech.stopSpeaking();
+    if (!settings.tts) { speech.stopSpeaking(); stopKaraoke(); }
     renderSpeakerBtn();
     $("ttsToggle").checked = settings.tts;
   });
@@ -1572,14 +1780,54 @@
       opt.textContent = "🎙️ גברי בהיר (מכשיר)";
       select.appendChild(opt);
     }
+
+    // Precise-karaoke voices: local voices that emit real word-timing events, so
+    // the highlight lands exactly on each spoken word (no estimating).
+    const preciseVoices = speech.getWordTimingVoices(6);
+    if (preciseVoices.length) {
+      const group = document.createElement("optgroup");
+      group.label = "🎯 סנכרון מדויק (קריוקי)";
+      preciseVoices.forEach((v) => {
+        const opt = document.createElement("option");
+        opt.value = v.name;
+        opt.textContent = "🎯 " + shortVoiceName(v.name) + " — סנכרון מדויק";
+        group.appendChild(opt);
+      });
+      select.appendChild(group);
+    }
     select.value = settings.voice || "";
 
     const total = (females[0] ? 1 : 0) + (males[0] ? 1 : 0);
-    $("voiceCountHint").textContent = speech.hasOpenAITts()
+    const preciseHint = preciseVoices.length
+      ? ` קולות עם 🎯 מסמנים כל מילה בדיוק בזמן שהיא נאמרת (מושלם לקריוקי, אך נשמעים מעט פחות טבעיים).`
+      : ``;
+    $("voiceCountHint").textContent = (speech.hasOpenAITts()
       ? `קולות הפרימיום ⭐ למעלה נשמעים הכי טבעי. קולות המכשיר הם הבסיסיים של הטלפון (לא ניתן לשנות את הצליל שלהם).`
       : (total >= 1
         ? `אלה הקולות הבסיסיים של המכשיר. לקולות טבעיים ומקצועיים באמת — הגדר פרוקסי OpenAI למטה.`
-        : `⚠️ המכשיר שלך חושף מעט מאוד קולות. לקולות איכותיים באמת — הגדר פרוקסי OpenAI למטה.`);
+        : `⚠️ המכשיר שלך חושף מעט מאוד קולות. לקולות איכותיים באמת — הגדר פרוקסי OpenAI למטה.`)) + preciseHint;
+
+    // Diagnostic: list every English voice the browser exposes and whether it
+    // supports precise (word-timing) sync, so it's clear what's available.
+    const engVoices = speech.getEnglishVoices();
+    const diag = $("voiceDiag");
+    if (diag) {
+      if (!engVoices.length) {
+        diag.textContent = "אבחון: הדפדפן לא חושף אף קול אנגלית.";
+      } else {
+        diag.textContent = "אבחון קולות אנגלית זמינים: " + engVoices
+          .map((v) => shortVoiceName(v.name) + (speech.supportsWordTiming(v) ? " ✅מדויק" : " 〰️מוערך"))
+          .join(" · ");
+      }
+    }
+  }
+
+  // Trim a raw SpeechSynthesis voice name to something short and readable for
+  // the picker (e.g. "Microsoft David - English (United States)" -> "David").
+  function shortVoiceName(name) {
+    let s = (name || "").split(" - ")[0].split(" (")[0].trim();
+    s = s.replace(/^(Microsoft|Google|Apple)\s+/i, "").replace(/\s+(Desktop|Online.*)$/i, "").trim();
+    return s || name || "קול";
   }
   document.addEventListener("sf:voicesChanged", populateVoices);
 
@@ -1622,6 +1870,7 @@
     $("ttsProxyInput").value = store.getTtsProxy();
     $("ttsToggle").checked = settings.tts;
     $("autoSendToggle").checked = Boolean(settings.autoSend);
+    $("autoTranslateToggle").checked = Boolean(settings.autoTranslate);
     $("webSearchToggle").checked = true;
     $("webSearchToggle").disabled = true;
     $("rateInput").value = settings.rate;
@@ -1666,6 +1915,7 @@
     speech.setTtsProxy(store.getTtsProxy());
     settings.tts = $("ttsToggle").checked;
     settings.autoSend = $("autoSendToggle").checked;
+    settings.autoTranslate = $("autoTranslateToggle").checked;
     settings.webSearch = true;
     settings.rate = parseFloat($("rateInput").value);
     settings.goal = Math.max(10, parseInt($("goalInput").value, 10) || cfg.DEFAULT_GOAL);
