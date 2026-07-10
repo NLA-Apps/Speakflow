@@ -464,7 +464,9 @@
     span.classList.remove("done");
     const render = () => { span.textContent = "⏱ " + ((performance.now() - t0) / 1000).toFixed(1) + "s"; };
     render();
-    speakTimer = { span, t0, interval: setInterval(render, 100), fallback: setTimeout(freezeSpeakTimer, 30000) };
+    // Freeze after a few seconds if audio never starts (e.g. TTS was blocked),
+    // so the label shows a sane time instead of ticking up to ~30s.
+    speakTimer = { span, t0, interval: setInterval(render, 100), fallback: setTimeout(freezeSpeakTimer, 5000) };
   }
   function freezeSpeakTimer() {
     if (!speakTimer) return;

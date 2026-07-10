@@ -407,6 +407,8 @@ window.SF_SPEECH = (function () {
   function primeAudio() {
     unlockAudioElement(); // also unlock the HTMLAudioElement used for OpenAI TTS
     if (!("speechSynthesis" in window)) return;
+    // iOS can leave the engine paused; resume() before priming un-sticks it.
+    try { speechSynthesis.resume(); } catch { /* noop */ }
     const u = new SpeechSynthesisUtterance(" ");
     u.volume = 0;
     speechSynthesis.speak(u);
@@ -462,7 +464,12 @@ window.SF_SPEECH = (function () {
     };
     u.onend = () => { if (hooks && hooks.onEnd) hooks.onEnd(); };
     u.onerror = () => { if (hooks && hooks.onEnd) hooks.onEnd(); };
+    // iOS often queues the first utterance of a session in a paused state and
+    // never starts it. resume() right before + a nudge just after unsticks it,
+    // which is what makes the FIRST reply actually get read aloud on mobile.
+    try { speechSynthesis.resume(); } catch { /* noop */ }
     speechSynthesis.speak(u);
+    setTimeout(() => { try { speechSynthesis.resume(); } catch { /* noop */ } }, 120);
   }
 
   function stopSpeaking() {
