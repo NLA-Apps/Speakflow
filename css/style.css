@@ -399,6 +399,9 @@ body[data-view="progress"] .progress-panel { display: block; }
   font-family: var(--font-en);
   word-wrap: break-word;
 }
+/* Preserve line breaks in the message text so a taught word-list shows one
+   word per line (normal replies have no newlines, so they're unaffected). */
+.msg-text { white-space: pre-wrap; }
 
 .msg.user {
   background: linear-gradient(135deg, var(--accent-strong), #5b6fed);

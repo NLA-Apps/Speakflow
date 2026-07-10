@@ -563,14 +563,18 @@
 
     stopKaraoke(); // clear any previous highlight and kill its callbacks
     const myToken = karaokeToken;
-    const total = (row._text || "").length || 1;
     karaoke = buildKaraoke(row); // set before speaking so the first cue can use it
 
+    // Read ENGLISH ONLY: strip Hebrew/Arabic so the English voice reads smoothly
+    // instead of stumbling on (or silently skipping) foreign-script words — e.g.
+    // the Hebrew meanings in a taught word-list. Time the estimate to this length.
+    const rate = settings.rate || 0.9;
+    const ttsText = (row._text || "").replace(/[֐-׿؀-ۿ]+/g, " ").replace(/\s{2,}/g, " ").trim() || (row._text || "");
+    const total = ttsText.length || 1;
     // Most high-quality voices (Natural/online, and all OpenAI audio) give no
     // per-word timing, so we run a time-based estimator anchored to when audio
     // actually starts. If real cues arrive (a local voice's word boundaries or
     // the OpenAI clip's playback fraction), they take over for exact sync.
-    const rate = settings.rate || 0.9;
     const estMs = Math.max(650, (total * 60) / rate); // ~17 chars/sec at rate 1
     // Voices start audio a beat after onstart, and a highlight reads best when
     // it lands just as the word begins — so run the estimate a touch ahead
@@ -594,7 +598,7 @@
     // so a normal onstart wins and the estimate doesn't run ahead of real audio.
     setTimeout(startEstimator, 900);
 
-    speech.speak(row._text, rate, {
+    speech.speak(ttsText, rate, {
       onStart: startEstimator,
       onBoundary: (charIndex) => {
         if (myToken !== karaokeToken) return;

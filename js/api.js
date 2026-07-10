@@ -42,6 +42,22 @@ window.SF_API = (function () {
     store.setChat(history.slice(-cfg.MAX_HISTORY_TURNS));
   }
 
+  /** Remove markdown/emphasis so it isn't shown in the bubble or read aloud
+   *  literally by TTS. Sky is told to write plain text; this is the safety net. */
+  function stripMarkdown(text) {
+    if (!text) return text;
+    return text
+      .replace(/\*\*([^*]+)\*\*/g, "$1")   // **bold**
+      .replace(/__([^_]+)__/g, "$1")       // __bold__
+      .replace(/\*([^*]+)\*/g, "$1")       // *italic*
+      .replace(/`([^`]+)`/g, "$1")         // `code`
+      .replace(/^\s{0,3}#{1,6}\s+/gm, "")  // # headings
+      .replace(/^\s*[-*+]\s+/gm, "")       // "- " / "* " bullet lists
+      .replace(/[*_`]/g, "")               // any leftover emphasis chars
+      .replace(/[ \t]{2,}/g, " ")
+      .trim();
+  }
+
   /**
    * Send a user message. Returns {reply, insights, demo}.
    * Throws Error with a Hebrew-friendly .userMessage on failure (or .aborted === true
@@ -60,6 +76,10 @@ window.SF_API = (function () {
       if (!err.aborted) log?.error("sendMessage failed", { error: err.userMessage || String(err) });
       throw err;
     }
+
+    // Sky should reply in plain text, but strip any markdown it slips in so the
+    // symbols aren't shown in the bubble or spoken aloud by TTS ("asterisk").
+    result.reply = stripMarkdown(result.reply);
 
     history.push({ role: "assistant", content: result.reply });
     while (history.length > cfg.MAX_HISTORY_TURNS) history.shift();
