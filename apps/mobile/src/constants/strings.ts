@@ -1,0 +1,16 @@
+export const strings = {
+  appName: 'SpeakingFlow',
+  subtitle: 'מדברים אנגלית בביטחון',
+  description: 'מאמן AI לשיחה חיה בעברית ובאנגלית',
+  start: 'התחל שיחה',
+  diagnostics: 'בדיקת מערכת',
+  settings: 'הגדרות',
+  ready: 'המערכת מוכנה לשיחה',
+  notReady: 'יש להשלים את הגדרת השרת',
+  microphoneExplainer: 'המיקרופון נדרש רק בזמן שיחה חיה. ההקלטה מוזרמת ואינה נשמרת באפליקציה.',
+  retry: 'נסה שוב',
+  stop: 'סיום',
+  mute: 'השתקה',
+  unmute: 'ביטול השתקה',
+  interrupt: 'עצור את המאמן',
+};

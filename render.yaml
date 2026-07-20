@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: speakingflow-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci && npm run build:server
+    startCommand: npm run start --workspace @speakingflow/server
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - apps/server/**
+        - packages/shared/**
+        - package.json
+        - package-lock.json
+        - render.yaml
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_REALTIME_MODEL
+        value: gpt-realtime
+      - key: OPENAI_TEXT_MODEL
+        value: gpt-5.4-mini
+      - key: OPENAI_SEARCH_MODEL
+        value: gpt-5.4-mini
+      - key: TOKEN_TTL_SECONDS
+        value: "60"
+      - key: ALLOWED_ORIGINS
+        value: http://localhost:8081,https://nla-apps.github.io

@@ -1,0 +1,33 @@
+{
+  "name": "speakingflow",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "install:all": "npm install",
+    "mobile": "npm run start --workspace @speakingflow/mobile",
+    "server": "npm run dev --workspace @speakingflow/server",
+    "dev": "concurrently -n server,mobile -c cyan,blue \"npm run server\" \"npm run mobile\"",
+    "build:server": "npm run build --workspace @speakingflow/shared && npm run build --workspace @speakingflow/server",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "secret-scan": "node scripts/secret-scan.mjs",
+    "check": "npm run secret-scan && npm run typecheck && npm run lint && npm run test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "prettier": "^3.6.2"
+  },
+  "engines": {
+    "node": ">=20.19"
+  },
+  "overrides": {
+    "@types/react": "19.2.14"
+  }
+}
